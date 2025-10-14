@@ -1,0 +1,5 @@
+{
+  "name": "Typing Thunder",
+  "description": "A fast-paced typing game where words fall from the top, and you must quickly type them to destroy them before they reach the bottom and cost you a heart.",
+  "requestFramePermissions": []
+}
