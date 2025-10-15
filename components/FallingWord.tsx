@@ -20,7 +20,8 @@ const FallingWord: React.FC<FallingWordProps> = ({ word, typedInput }) => {
     const wordStyle: React.CSSProperties = {
         position: 'absolute',
         left: `${word.x}px`,
-        top: `${word.y}px`,
+        top: 0,
+        transform: `translateY(${word.y}px)`,
         textShadow: isTyping ? '0 0 8px #0ff' : (isPowerUp ? '0 0 8px #fff' : isWaveWord ? '0 0 8px #ef4444' : '0 0 5px #000'),
         opacity: isDestroyed ? 0 : 1,
         transition: 'opacity 0.1s linear',
@@ -58,6 +59,8 @@ const FallingWord: React.FC<FallingWordProps> = ({ word, typedInput }) => {
                         '--x': `${(Math.random() - 0.5) * (isPowerUp ? 250 : 150)}px`,
                         '--y': `${(Math.random() - 0.5) * (isPowerUp ? 250 : 150)}px`,
                         '--s': `${Math.random() + (isPowerUp ? 1 : 0.5)}`,
+                        '--duration': `${0.5 + Math.random() * 0.4}s`,
+                        '--delay': `${Math.random() * 0.1}s`,
                         background: isPowerUp ? 'white' : isWaveWord ? '#f87171' : 'cyan' // red-400
                     } as React.CSSProperties}
                  />
