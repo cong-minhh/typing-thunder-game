@@ -58,7 +58,8 @@ const HelpScreen: React.FC<HelpScreenProps> = ({ onBack }) => {
                             <ul className="list-disc list-inside ml-4">
                                 <li>A single, powerful word will appear in the center. Type it to damage the boss.</li>
                                 <li>The boss has a health bar and a timer. Defeat it before time runs out!</li>
-                                <li>Smaller "distraction" words will continue to fall. You can type these as well to keep your combo up and avoid losing lives.</li>
+                                <li>Smaller "distraction" words will continue to fall. You can type these as well.</li>
+                                <li><span className="font-bold text-fuchsia-400">Watch out!</span> After you hit the boss, it will fire a bouncing letter projectile. Type the letter to destroy it, or you'll lose a life if it hits the bottom!</li>
                             </ul>
                         </p>
                     </HelpSection>

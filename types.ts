@@ -1,6 +1,5 @@
 
-
-// Fix: Removed self-import of GameStatus which was causing a declaration conflict.
+// Fix: Removed self-import of 'GameStatus' to fix declaration conflict and circular dependency.
 export enum GameStatus {
     Start,
     Settings,
@@ -43,6 +42,7 @@ export interface Word {
     vx?: number;
     vy?: number;
     bounces?: number;
+    isProjectile?: boolean;
 }
 
 export interface FloatingScore {

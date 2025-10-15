@@ -4,7 +4,7 @@ import GameScreen from './components/GameScreen';
 import StartScreen from './components/StartScreen';
 import GameOverScreen from './components/GameOverScreen';
 import ComboIndicator from './components/ComboIndicator';
-import { LEVEL_UP_SCORE, WORD_FALL_SPEED_INCREASE, WORD_SPAWN_RATE_DECREASE, DIFFICULTY_PRESETS, POWERUP_THRESHOLDS, POWERUP_DURATIONS, TIMING_WINDOW_MS, MAX_TIMING_BONUS_MULTIPLIER, TIMING_TIERS, WORDS_PER_LEVEL_UNTIL_WAVE, WAVE_WARNING_DURATION_MS, BOSS_HEALTH_BASE, BOSS_HEALTH_PER_LEVEL, BOSS_TIMER_DURATION_MS, BOSS_WORDS_BASE, BOSS_WORDS_PER_LEVEL, BOSS_SLOW_SPAWN_RATE_MS, WAVE_ACCELERATE_DURATION_MS, WAVE_ACCELERATE_END_SPEED_MULTIPLIER, WAVE_ACCELERATE_SPAWN_RATE_MS, WAVE_ACCELERATE_START_SPEED_MULTIPLIER, WAVE_DELUGE_WORD_COUNT, WAVE_DELUGE_SPAWN_RATE_MS, WAVE_DELUGE_SPEED_MULTIPLIER, GRADE_THRESHOLDS, POWERUP_WORD_VX, POWERUP_WORD_VY, POWERUP_WORD_MAX_BOUNCES } from './constants';
+import { LEVEL_UP_SCORE, WORD_FALL_SPEED_INCREASE, WORD_SPAWN_RATE_DECREASE, DIFFICULTY_PRESETS, POWERUP_THRESHOLDS, POWERUP_DURATIONS, TIMING_WINDOW_MS, MAX_TIMING_BONUS_MULTIPLIER, TIMING_TIERS, WORDS_PER_LEVEL_UNTIL_WAVE, WAVE_WARNING_DURATION_MS, BOSS_HEALTH_BASE, BOSS_HEALTH_PER_LEVEL, BOSS_TIMER_DURATION_MS, BOSS_WORDS_BASE, BOSS_WORDS_PER_LEVEL, BOSS_SLOW_SPAWN_RATE_MS, WAVE_ACCELERATE_DURATION_MS, WAVE_ACCELERATE_END_SPEED_MULTIPLIER, WAVE_ACCELERATE_SPAWN_RATE_MS, WAVE_ACCELERATE_START_SPEED_MULTIPLIER, WAVE_DELUGE_WORD_COUNT, WAVE_DELUGE_SPAWN_RATE_MS, WAVE_DELUGE_SPEED_MULTIPLIER, GRADE_THRESHOLDS, POWERUP_WORD_VX, POWERUP_WORD_VY, POWERUP_WORD_MAX_BOUNCES, PROJECTILE_LETTER_SPEED } from './constants';
 import HeartIcon from './components/UI/HeartIcon';
 import BackgroundAnimation from './components/BackgroundAnimation';
 import PowerUpBar from './components/PowerUpBar';
@@ -270,7 +270,23 @@ const App: React.FC = () => {
             const updatedWords = prevWords.map(word => {
                 if (word.status !== 'falling') return word;
 
-                if (word.vx !== undefined && word.vy !== undefined && word.bounces !== undefined) {
+                if (word.isProjectile) {
+                    const newProjectile = { ...word };
+                    const speedMultiplier = isTimeSlowed ? 0.4 : 1;
+                    newProjectile.x += newProjectile.vx! * speedMultiplier;
+                    newProjectile.y += newProjectile.vy! * speedMultiplier;
+                    
+                    const wordWidth = newProjectile.text.length * 25; // estimate for projectile
+
+                    if ((newProjectile.x <= 0 && newProjectile.vx! < 0) || (newProjectile.x + wordWidth >= gameWidth && newProjectile.vx! > 0)) {
+                        newProjectile.vx! *= -1;
+                    }
+                    if (newProjectile.y <= 0 && newProjectile.vy! < 0) {
+                        newProjectile.vy! *= -1;
+                    }
+
+                    return newProjectile;
+                } else if (word.vx !== undefined && word.vy !== undefined && word.bounces !== undefined) {
                     const newWord = { ...word };
                     const speedMultiplier = isTimeSlowed ? 0.4 : 1;
                     newWord.x += newWord.vx * speedMultiplier;
@@ -293,9 +309,11 @@ const App: React.FC = () => {
                 }
             });
 
-            const missedNormalWords = updatedWords.filter(w => w.status === 'falling' && !w.powerUp && w.y >= gameHeight);
-            if (missedNormalWords.length > 0) {
-                let livesToLose = missedNormalWords.length;
+            const missedNormalWords = updatedWords.filter(w => w.status === 'falling' && !w.powerUp && !w.isProjectile && w.y >= gameHeight);
+            const missedProjectiles = updatedWords.filter(w => w.status === 'falling' && w.isProjectile && w.y >= gameHeight);
+            
+            let livesToLose = missedNormalWords.length + missedProjectiles.length;
+            if (livesToLose > 0) {
                 if (shieldActive) {
                     livesToLose -= 1;
                     setShieldActive(false);
@@ -673,6 +691,23 @@ const App: React.FC = () => {
                 setIsBossHit(true);
                 setTimeout(() => setIsBossHit(false), 300);
 
+                // Spawn projectile letter
+                const randomChar = currentBossWord[Math.floor(Math.random() * currentBossWord.length)];
+                const gameWidth = gameContainerRef.current?.offsetWidth ?? 800;
+                const gameHeight = gameContainerRef.current?.offsetHeight ?? 600;
+                const angle = Math.random() * 2 * Math.PI;
+                const newProjectile: Word = {
+                    id: Date.now() + Math.random(),
+                    text: randomChar.toLowerCase(),
+                    x: gameWidth / 2,
+                    y: gameHeight / 2,
+                    vx: Math.cos(angle) * PROJECTILE_LETTER_SPEED,
+                    vy: Math.sin(angle) * PROJECTILE_LETTER_SPEED,
+                    status: 'falling',
+                    isProjectile: true,
+                };
+                setWords(prev => [...prev, newProjectile]);
+
                 const points = (currentBossWord.length || 5) * 5 * (isScoreBoosted ? 2 : 1);
                 setScore(s => s + points);
                 setCombo(prev => prev + 1);
@@ -700,10 +735,29 @@ const App: React.FC = () => {
         const allMatchedWords = words.filter(word => word.status === 'falling' && word.text.toLowerCase() === trimmedInput);
         
         if (allMatchedWords.length > 0) {
-            // Prioritize the word lowest on the screen (highest y value).
             const wordToComplete = allMatchedWords.sort((a, b) => b.y - a.y)[0];
 
-            if (wordToComplete.powerUp) {
+            if (wordToComplete.isProjectile) {
+                const scoreMultiplier = isScoreBoosted ? 2 : 1;
+                const points = 25 * scoreMultiplier;
+                setScore(s => s + points);
+                setCombo(c => c + 1);
+                 setGameStats(prev => ({
+                    ...prev,
+                    totalCharsCompleted: prev.totalCharsCompleted + 1,
+                    longestCombo: Math.max(prev.longestCombo, combo + 1),
+                }));
+                setFloatingScores(prev => [...prev, {
+                    id: Date.now(), base: 25, bonus: 0,
+                    scoreMultiplier: scoreMultiplier > 1 ? scoreMultiplier : undefined,
+                    x: wordToComplete.x, y: wordToComplete.y
+                }]);
+                setWords(prev => prev.map(w => w.id === wordToComplete.id ? { ...w, status: 'destroyed' } : w));
+                setTimeout(() => setWords(prev => prev.filter(w => w.id !== wordToComplete.id)), 600);
+                setTypedInput('');
+                setLastCompletionTime(Date.now());
+
+            } else if (wordToComplete.powerUp) {
                 const stateKey = powerUpTypeToStateKey[wordToComplete.powerUp];
                 setPowerUpProgress(prev => ({ ...prev, [stateKey]: POWERUP_THRESHOLDS[stateKey] }));
                 setPowerUpsReady(prev => ({ ...prev, [stateKey]: true }));
@@ -718,8 +772,8 @@ const App: React.FC = () => {
                     x: wordToComplete.x, y: wordToComplete.y
                 }]);
                 setTypedInput('');
-            } else { // It's a regular falling word
-                processWordCompletion([wordToComplete]); // Pass an array with only the single selected word
+            } else { 
+                processWordCompletion([wordToComplete]);
             }
         }
     };

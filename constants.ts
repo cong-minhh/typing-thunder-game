@@ -80,9 +80,10 @@ export const BOSS_TIMER_DURATION_MS = 20000;
 export const BOSS_WORDS_BASE = 5;
 export const BOSS_WORDS_PER_LEVEL = 1;
 export const BOSS_SLOW_SPAWN_RATE_MS = 3000;
+export const PROJECTILE_LETTER_SPEED = 4;
+
 
 // Leaderboard and Grading
-export const LEADERBOARD_MAX_SIZE = 10;
 export const GRADE_THRESHOLDS = {
     S: 900,
     A: 600,
@@ -91,6 +92,9 @@ export const GRADE_THRESHOLDS = {
     D: 100,
     F: 0,
 };
+
+// Fix: Added missing LEADERBOARD_MAX_SIZE constant.
+export const LEADERBOARD_MAX_SIZE = 10;
 
 // New Power-up word constants
 export const POWERUP_WORD_VX = 3; // base horizontal speed
