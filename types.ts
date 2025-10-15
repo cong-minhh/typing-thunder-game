@@ -1,3 +1,4 @@
+
 // Fix: Removed self-import of 'GameStatus' to fix declaration conflict and circular dependency.
 export enum GameStatus {
     Start,
@@ -57,10 +58,8 @@ export interface FloatingScore {
 }
 
 export interface ActivePowerUp {
-    id: string;
     type: PowerUpType;
     expiration: number;
-    stacks?: number;
 }
 
 export interface BossState {
