@@ -1,14 +1,19 @@
 import React from 'react';
 import { POWERUP_THRESHOLDS } from '../constants';
+import { PowerUpType } from '../types';
 
 interface PowerUpBarProps {
     progress: {
         slowTime: number;
         clearWords: number;
+        shield: number;
+        scoreMultiplier: number;
     };
     ready: {
         slowTime: boolean;
         clearWords: boolean;
+        shield: boolean;
+        scoreMultiplier: boolean;
     };
 }
 
@@ -61,6 +66,22 @@ const PowerUpBar: React.FC<PowerUpBarProps> = ({ progress, ready }) => {
                 color="bg-purple-500"
                 isReady={ready.clearWords}
                 hotkey="2"
+            />
+            <PowerUpItem
+                label="Shield"
+                progress={progress.shield}
+                threshold={POWERUP_THRESHOLDS.shield}
+                color="bg-green-500"
+                isReady={ready.shield}
+                hotkey="3"
+            />
+            <PowerUpItem
+                label="Score Boost"
+                progress={progress.scoreMultiplier}
+                threshold={POWERUP_THRESHOLDS.scoreMultiplier}
+                color="bg-yellow-500"
+                isReady={ready.scoreMultiplier}
+                hotkey="4"
             />
         </div>
     );

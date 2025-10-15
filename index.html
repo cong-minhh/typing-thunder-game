@@ -168,6 +168,109 @@
   .animate-timing-bonus-pop {
     animation: timing-bonus-pop 1s cubic-bezier(0.18, 0.89, 0.32, 1.28);
   }
+  
+  @keyframes wave-alert-intense {
+    0% { opacity: 0; transform: scale(0.8) skewX(-15deg); text-shadow: 0 0 10px #ef4444; }
+    20% { opacity: 1; transform: scale(1.1) skewX(-15deg); text-shadow: 0 0 30px #ef4444, 0 0 50px #ef4444; }
+    80% { opacity: 1; transform: scale(1) skewX(-15deg); text-shadow: 0 0 20px #ef4444, 0 0 40px #ef4444; }
+    100% { opacity: 0; transform: scale(0.8) skewX(-15deg); text-shadow: 0 0 10px #ef4444; }
+  }
+  .animate-wave-alert-intense {
+    animation: wave-alert-intense 2s ease-in-out forwards;
+  }
+
+  @keyframes screen-shake-subtle {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
+    20%, 40%, 60%, 80% { transform: translateX(2px); }
+  }
+  .animate-screen-shake-subtle {
+      animation: screen-shake-subtle 2s ease-in-out forwards;
+  }
+
+  @keyframes boss-health-hit {
+    0%, 100% { transform: scaleX(1); }
+    50% { transform: scaleX(0.98); }
+  }
+  .animate-boss-health-hit {
+    animation: boss-health-hit 0.3s ease-in-out;
+  }
+
+  @keyframes boss-timer-pulse {
+    0%, 100% { text-shadow: 0 0 10px #ef4444; }
+    50% { text-shadow: 0 0 20px #ef4444, 0 0 30px #ef4444; }
+  }
+  .animate-boss-timer-pulse {
+    animation: boss-timer-pulse 1s ease-in-out infinite;
+  }
+
+  @keyframes glitch {
+    0% { transform: translate(0); }
+    10% { transform: translate(-2px, 2px); }
+    20% { transform: translate(2px, -2px); }
+    30% { transform: translate(-2px, -2px); }
+    40% { transform: translate(2px, 2px); }
+    50% { transform: translate(0); }
+    /* Pause for a bit */
+    100% { transform: translate(0); }
+  }
+  .animate-glitch {
+      animation: glitch 0.15s linear;
+  }
+
+  @keyframes level-clear-shine {
+      0% { opacity: 0; transform: scale(0.5) rotate(10deg); filter: brightness(3); }
+      30% { opacity: 1; transform: scale(1.1) rotate(-5deg); filter: brightness(1.5); }
+      80% { opacity: 1; transform: scale(1) rotate(0deg); filter: brightness(1); }
+      100% { opacity: 0; transform: scale(1.2) rotate(5deg); filter: brightness(1); }
+  }
+  .animate-level-clear-shine {
+      animation: level-clear-shine 2s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+  }
+
+  @keyframes flash-burst {
+    0% { transform: scale(0); opacity: 0.5; }
+    50% { opacity: 1; }
+    100% { transform: scale(3); opacity: 0; }
+  }
+  .flash-container::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 200%;
+      padding-bottom: 200%;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,255,220,0.8) 0%, rgba(74,222,128,0) 60%);
+      transform-origin: center;
+      transform: translate(-50%, -50%);
+      animation: flash-burst 0.8s ease-out forwards;
+      pointer-events: none;
+  }
+  
+  @keyframes vignette-pulse {
+    0%, 100% { box-shadow: inset 0 0 50px 20px rgba(239, 68, 68, 0.3); }
+    50% { box-shadow: inset 0 0 100px 40px rgba(239, 68, 68, 0.5); }
+  }
+  .animate-vignette-pulse {
+    animation: vignette-pulse 1s ease-in-out infinite;
+  }
+
+  @keyframes deluge-bg-fade-in {
+    from { background-color: rgba(30, 64, 175, 0); } /* blue-800/0 */
+    to { background-color: rgba(30, 64, 175, 0.4); } /* blue-800/40 */
+  }
+  .animate-deluge-bg {
+    animation: deluge-bg-fade-in 0.5s ease-out forwards;
+  }
+
+  @keyframes shield-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.7; }
+    50% { transform: scale(1.05); opacity: 1; }
+  }
+  .animate-shield-pulse {
+    animation: shield-pulse 2s ease-in-out infinite;
+  }
 </style>
 </head>
 <body class="bg-slate-900 text-white">
