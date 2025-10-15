@@ -1,4 +1,4 @@
-export type PowerUpType = 'slow-time' | 'bomb' | 'clear-words';
+export type PowerUpType = 'slow-time' | 'clear-words';
 
 export interface Word {
   id: number;

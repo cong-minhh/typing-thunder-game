@@ -29,9 +29,8 @@ export const DIFFICULTY_SETTINGS: Record<Difficulty, {
 };
 
 export const POWERUP_THRESHOLDS = {
-    slowTime: 25,
-    clearWords: 35,
-    bomb: 50,
+    slowTime: 1,
+    clearWords: 1,
 };
 
 export const POWERUP_DURATIONS = {

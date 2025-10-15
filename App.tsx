@@ -12,6 +12,8 @@ import { EASY_WORDS } from './data/easy-words';
 import { MEDIUM_WORDS } from './data/medium-words';
 import { HARD_WORDS } from './data/hard-words';
 import PauseScreen from './components/PauseScreen';
+import WipeAnimation from './components/WipeAnimation';
+import LifeLostOverlay from './components/LifeLostOverlay';
 
 const App: React.FC = () => {
     const [gameStatus, setGameStatus] = useState<GameStatus>(GameStatus.Start);
@@ -26,19 +28,23 @@ const App: React.FC = () => {
     const [difficulty, setDifficulty] = useState<Difficulty>('Medium');
     const [combo, setCombo] = useState<number>(0);
     const [floatingScores, setFloatingScores] = useState<FloatingScore[]>([]);
-    const [powerUpProgress, setPowerUpProgress] = useState({ slowTime: 0, bomb: 0, clearWords: 0 });
-    const [powerUpsReady, setPowerUpsReady] = useState({ slowTime: false, bomb: false, clearWords: false });
+    const [powerUpProgress, setPowerUpProgress] = useState({ slowTime: 0, clearWords: 0 });
+    const [powerUpsReady, setPowerUpsReady] = useState({ slowTime: false, clearWords: false });
     const [activePowerUps, setActivePowerUps] = useState<ActivePowerUp[]>([]);
     const [gameWords, setGameWords] = useState<string[]>([]);
+    const [isWiping, setIsWiping] = useState(false);
+    const [isLosingLife, setIsLosingLife] = useState(false);
 
     const animationFrameId = useRef<number | null>(null);
     const lastSpawnTime = useRef<number>(Date.now());
     const gameContainerRef = useRef<HTMLDivElement>(null);
     const inputStatusTimeout = useRef<number | null>(null);
     const resumeAnimation = useRef<{startTime: number, duration: number} | null>(null);
+    const prevLivesRef = useRef(lives);
     
     const difficultySettings = DIFFICULTY_SETTINGS[difficulty];
-    const fallSpeedMultiplier = activePowerUps.some(p => p.type === 'slow-time') ? 0.4 : 1;
+    const isTimeSlowed = activePowerUps.some(p => p.type === 'slow-time');
+    const fallSpeedMultiplier = isTimeSlowed ? 0.4 : 1;
     const wordFallSpeed = (difficultySettings.WORD_FALL_SPEED_START + (level - 1) * WORD_FALL_SPEED_INCREASE) * fallSpeedMultiplier;
     const wordSpawnRate = Math.max(200, difficultySettings.WORD_SPAWN_RATE_START - (level - 1) * WORD_SPAWN_RATE_DECREASE);
 
@@ -50,10 +56,11 @@ const App: React.FC = () => {
         setLevel(1);
         setCombo(0);
         setFloatingScores([]);
-        setPowerUpProgress({ slowTime: 0, bomb: 0, clearWords: 0 });
-        setPowerUpsReady({ slowTime: false, bomb: false, clearWords: false });
+        setPowerUpProgress({ slowTime: 0, clearWords: 0 });
+        setPowerUpsReady({ slowTime: false, clearWords: false });
         setActivePowerUps([]);
         setGameWords([]);
+        setIsLosingLife(false);
         lastSpawnTime.current = Date.now();
     }, []);
 
@@ -86,22 +93,19 @@ const App: React.FC = () => {
 
         const gameWidth = gameContainerRef.current.offsetWidth;
         
-        let randomWord: string;
         let wordText: string;
         switch(powerUp) {
             case 'slow-time': wordText = 'SLOW'; break;
-            case 'bomb': wordText = 'BOMB'; break;
-            case 'clear-words': wordText = 'CLEAR'; break;
+            case 'clear-words': wordText = 'WIPE'; break;
             default: wordText = gameWords[Math.floor(Math.random() * gameWords.length)];
         }
-        randomWord = wordText;
         
         let spawnX: number;
         let attempts = 0;
         let positionValid = false;
         
         do {
-            spawnX = Math.random() * (gameWidth - (randomWord.length * 12));
+            spawnX = Math.random() * (gameWidth - (wordText.length * 12));
             positionValid = !words.some(word => 
                 word.y < 50 && Math.abs(word.x - spawnX) < 100
             );
@@ -110,7 +114,7 @@ const App: React.FC = () => {
 
         const newWord: Word = {
             id: Date.now() + Math.random(),
-            text: randomWord,
+            text: wordText,
             x: Math.max(0, spawnX),
             y: -20,
             status: 'falling',
@@ -120,8 +124,8 @@ const App: React.FC = () => {
     }, [gameWords, words]);
 
     const gameLoop = useCallback(() => {
-        if (gameStatus !== GameStatus.Playing) {
-             if (resumeAnimation.current) resumeAnimation.current = null;
+        if (gameStatus !== GameStatus.Playing || isLosingLife) {
+             if (resumeAnimation.current && !isLosingLife) resumeAnimation.current = null;
             return;
         }
         
@@ -147,14 +151,7 @@ const App: React.FC = () => {
 
             const missedWords = updatedWords.filter(word => word.y >= gameHeight);
             if (missedWords.length > 0) {
-                setLives(prevLives => {
-                    const newLives = prevLives - missedWords.length;
-                    if (newLives < prevLives) {
-                        setIsShaking(true);
-                        setTimeout(() => setIsShaking(false), 500);
-                    }
-                    return newLives;
-                });
+                setLives(prevLives => prevLives - missedWords.length);
                 setCombo(0);
             }
 
@@ -170,7 +167,29 @@ const App: React.FC = () => {
         }
 
         animationFrameId.current = requestAnimationFrame(gameLoop);
-    }, [gameStatus, spawnWord, wordFallSpeed, wordSpawnRate]);
+    }, [gameStatus, spawnWord, wordFallSpeed, wordSpawnRate, isLosingLife]);
+
+    useEffect(() => {
+        if (lives < prevLivesRef.current && gameStatus === GameStatus.Playing) {
+            setIsLosingLife(true);
+            setTypedInput('');
+    
+            // Screen wipe effect
+            setIsWiping(true);
+            setTimeout(() => {
+                setWords([]); // Clear all words from the board
+                setIsWiping(false);
+            }, 800); // Wipe animation duration
+    
+            // Total duration for the life lost sequence
+            setTimeout(() => {
+                setIsLosingLife(false);
+                // Start accelerating back to speed
+                resumeAnimation.current = { startTime: performance.now(), duration: 1500 };
+            }, 2000); // Total effect duration
+        }
+        prevLivesRef.current = lives;
+    }, [lives, gameStatus]);
 
     const handleResume = useCallback(() => {
         setGameStatus(GameStatus.Playing);
@@ -235,21 +254,13 @@ const App: React.FC = () => {
             case 'slow-time':
                 setActivePowerUps(prev => [...prev, { type: 'slow-time', expiration: Date.now() + POWERUP_DURATIONS.slowTime }]);
                 break;
-            case 'bomb':
-                setWords(prev => prev.map(w => w.status === 'falling' ? { ...w, status: 'destroyed' } : w));
-                setTimeout(() => setWords(prev => prev.filter(w => w.status !== 'destroyed')), 600);
-                break;
             case 'clear-words':
-                setWords(prev => {
-                    const fallingWords = prev.filter(w => w.status === 'falling');
-                    const wordsToClear = new Set();
-                    for (let i = 0; i < 3 && fallingWords.length > 0; i++) {
-                        const randomIndex = Math.floor(Math.random() * fallingWords.length);
-                        wordsToClear.add(fallingWords.splice(randomIndex, 1)[0].id);
-                    }
-                    return prev.map(w => wordsToClear.has(w.id) ? { ...w, status: 'destroyed' } : w);
-                });
-                setTimeout(() => setWords(prev => prev.filter(w => w.status !== 'destroyed')), 600);
+                setIsWiping(true);
+                setTimeout(() => {
+                    setWords(prev => prev.map(w => w.status === 'falling' ? { ...w, status: 'destroyed' } : w));
+                    setTimeout(() => setWords(prev => prev.filter(w => w.status !== 'destroyed')), 600);
+                    setIsWiping(false);
+                }, 800);
                 break;
         }
     };
@@ -284,7 +295,6 @@ const App: React.FC = () => {
         const trimmedInput = typedInput.trim().toLowerCase();
         if (!trimmedInput) return;
 
-        // Handle power-up activation
         if (gameStatus === GameStatus.Playing) {
             if (trimmedInput === '1' && powerUpsReady.slowTime) {
                 spawnWord('slow-time');
@@ -297,13 +307,6 @@ const App: React.FC = () => {
                 spawnWord('clear-words');
                 setPowerUpsReady(prev => ({ ...prev, clearWords: false }));
                 setPowerUpProgress(prev => ({ ...prev, clearWords: 0 }));
-                setTypedInput('');
-                return;
-            }
-            if (trimmedInput === '3' && powerUpsReady.bomb) {
-                spawnWord('bomb');
-                setPowerUpsReady(prev => ({ ...prev, bomb: false }));
-                setPowerUpProgress(prev => ({ ...prev, bomb: 0 }));
                 setTypedInput('');
                 return;
             }
@@ -366,13 +369,6 @@ const App: React.FC = () => {
                         readyStateChanged = true;
                     }
                 }
-                if (!powerUpsReady.bomb) {
-                    nextProgress.bomb = Math.min(powerUpProgress.bomb + regularWordsCleared, POWERUP_THRESHOLDS.bomb);
-                    if (nextProgress.bomb >= POWERUP_THRESHOLDS.bomb) {
-                        nextReadyState.bomb = true;
-                        readyStateChanged = true;
-                    }
-                }
                 
                 setPowerUpProgress(nextProgress);
                 if (readyStateChanged) {
@@ -426,8 +422,8 @@ const App: React.FC = () => {
                         showLevelUp={showLevelUp}
                         inputStatus={inputStatus}
                         floatingScores={floatingScores}
-                        isTimeSlowed={activePowerUps.some(p => p.type === 'slow-time')}
-                        isPaused={gameStatus === GameStatus.Paused}
+                        isTimeSlowed={isTimeSlowed}
+                        isPaused={gameStatus === GameStatus.Paused || isLosingLife}
                     />
                 );
             case GameStatus.GameOver:
@@ -439,7 +435,7 @@ const App: React.FC = () => {
     
     return (
         <div className="relative flex flex-col items-center justify-center min-h-screen font-mono p-4 overflow-hidden">
-            <BackgroundAnimation />
+            <BackgroundAnimation isTimeSlowed={isTimeSlowed} />
             <div className="relative z-10 flex flex-col items-center w-full">
                 <h1 className="text-5xl font-bold text-cyan-400 mb-2 tracking-widest" style={{ textShadow: '0 0 10px #0ff' }}>
                     TYPING THUNDER
@@ -467,7 +463,9 @@ const App: React.FC = () => {
                         )}
                         <div className={`w-full max-w-4xl h-[70vh] bg-slate-800/50 border-2 border-cyan-400/50 rounded-lg shadow-2xl shadow-cyan-500/10 relative overflow-hidden ${isShaking ? 'animate-shake' : ''} ${(gameStatus === GameStatus.Playing || gameStatus === GameStatus.Paused) ? 'rounded-t-none border-t-0' : ''}`}>
                             {renderContent()}
+                            {(gameStatus === GameStatus.Playing || isWiping) && isWiping && <WipeAnimation />}
                             {gameStatus === GameStatus.Paused && <PauseScreen onResume={handleResume} onQuit={returnToStart} />}
+                            {isLosingLife && <LifeLostOverlay />}
                         </div>
                     </div>
 

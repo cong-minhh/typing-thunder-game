@@ -23,7 +23,7 @@ const PauseScreen: React.FC<PauseScreenProps> = ({ onResume, onQuit }) => {
                     Quit
                 </button>
             </div>
-             <p className="text-slate-400 mt-8">Press 'P' or 'Escape' to resume.</p>
+             <p className="text-slate-400 mt-8">Press 'Escape' to resume.</p>
         </div>
     );
 };

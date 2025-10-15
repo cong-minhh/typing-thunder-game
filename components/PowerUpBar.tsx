@@ -4,12 +4,10 @@ import { POWERUP_THRESHOLDS } from '../constants';
 interface PowerUpBarProps {
     progress: {
         slowTime: number;
-        bomb: number;
         clearWords: number;
     };
     ready: {
         slowTime: boolean;
-        bomb: boolean;
         clearWords: boolean;
     };
 }
@@ -57,20 +55,12 @@ const PowerUpBar: React.FC<PowerUpBarProps> = ({ progress, ready }) => {
                 hotkey="1"
             />
             <PowerUpItem
-                label="Chain Lightning"
+                label="Screen Wipe"
                 progress={progress.clearWords}
                 threshold={POWERUP_THRESHOLDS.clearWords}
                 color="bg-purple-500"
                 isReady={ready.clearWords}
                 hotkey="2"
-            />
-            <PowerUpItem
-                label="Explosion"
-                progress={progress.bomb}
-                threshold={POWERUP_THRESHOLDS.bomb}
-                color="bg-red-500"
-                isReady={ready.bomb}
-                hotkey="3"
             />
         </div>
     );
