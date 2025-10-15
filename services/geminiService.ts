@@ -10,7 +10,7 @@ const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 const getPromptForLevel = (level: number): string => {
     let description = '';
-    const wordCount = 50;
+    const wordCount = 200;
 
     if (level === 1) {
         description = "4 and 5 characters long, very common";

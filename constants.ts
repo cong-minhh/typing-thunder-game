@@ -27,3 +27,13 @@ export const DIFFICULTY_SETTINGS: Record<Difficulty, {
         COMPLEXITY_START_LEVEL: 5,
     }
 };
+
+export const POWERUP_THRESHOLDS = {
+    slowTime: 25,
+    clearWords: 35,
+    bomb: 50,
+};
+
+export const POWERUP_DURATIONS = {
+    slowTime: 3000, // 3 seconds
+};

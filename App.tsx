@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { GameStatus, Word, Difficulty, FloatingScore } from './types';
+import { GameStatus, Word, Difficulty, FloatingScore, PowerUpType, ActivePowerUp } from './types';
 import { fetchWords } from './services/geminiService';
 import GameScreen from './components/GameScreen';
 import StartScreen from './components/StartScreen';
 import GameOverScreen from './components/GameOverScreen';
 import ComboIndicator from './components/ComboIndicator';
-import { INITIAL_LIVES, LEVEL_UP_SCORE, WORD_FALL_SPEED_INCREASE, WORD_SPAWN_RATE_DECREASE, DIFFICULTY_SETTINGS } from './constants';
+import { INITIAL_LIVES, LEVEL_UP_SCORE, WORD_FALL_SPEED_INCREASE, WORD_SPAWN_RATE_DECREASE, DIFFICULTY_SETTINGS, POWERUP_THRESHOLDS, POWERUP_DURATIONS } from './constants';
 import HeartIcon from './components/UI/HeartIcon';
 import BackgroundAnimation from './components/BackgroundAnimation';
+import PowerUpBar from './components/PowerUpBar';
 
 const App: React.FC = () => {
     const [gameStatus, setGameStatus] = useState<GameStatus>(GameStatus.Start);
@@ -18,6 +19,7 @@ const App: React.FC = () => {
     const [level, setLevel] = useState<number>(1);
     const [wordBank, setWordBank] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [isFetchingWords, setIsFetchingWords] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [isShaking, setIsShaking] = useState<boolean>(false);
     const [showLevelUp, setShowLevelUp] = useState<boolean>(false);
@@ -25,6 +27,8 @@ const App: React.FC = () => {
     const [difficulty, setDifficulty] = useState<Difficulty>('Medium');
     const [combo, setCombo] = useState<number>(0);
     const [floatingScores, setFloatingScores] = useState<FloatingScore[]>([]);
+    const [powerUpProgress, setPowerUpProgress] = useState({ slowTime: 0, bomb: 0, clearWords: 0 });
+    const [activePowerUps, setActivePowerUps] = useState<ActivePowerUp[]>([]);
 
     const animationFrameId = useRef<number | null>(null);
     const lastSpawnTime = useRef<number>(Date.now());
@@ -33,7 +37,8 @@ const App: React.FC = () => {
     const wordComplexityLevel = useRef<number>(1);
     
     const difficultySettings = DIFFICULTY_SETTINGS[difficulty];
-    const wordFallSpeed = difficultySettings.WORD_FALL_SPEED_START + (level - 1) * WORD_FALL_SPEED_INCREASE;
+    const fallSpeedMultiplier = activePowerUps.some(p => p.type === 'slow-time') ? 0.4 : 1;
+    const wordFallSpeed = (difficultySettings.WORD_FALL_SPEED_START + (level - 1) * WORD_FALL_SPEED_INCREASE) * fallSpeedMultiplier;
     const wordSpawnRate = Math.max(200, difficultySettings.WORD_SPAWN_RATE_START - (level - 1) * WORD_SPAWN_RATE_DECREASE);
 
     const resetGameState = useCallback(() => {
@@ -45,6 +50,8 @@ const App: React.FC = () => {
         setError(null);
         setCombo(0);
         setFloatingScores([]);
+        setPowerUpProgress({ slowTime: 0, bomb: 0, clearWords: 0 });
+        setActivePowerUps([]);
         lastSpawnTime.current = Date.now();
     }, []);
 
@@ -70,11 +77,38 @@ const App: React.FC = () => {
         }
     }, [resetGameState]);
 
-    const spawnWord = useCallback(() => {
-        if (wordBank.length === 0 || !gameContainerRef.current) return;
+    const fetchMoreWords = useCallback(async () => {
+        if (isFetchingWords) return;
+
+        setIsFetchingWords(true);
+        wordComplexityLevel.current += 1;
+        try {
+            const additionalWords = await fetchWords(wordComplexityLevel.current);
+            setWordBank(prev => [...new Set([...prev, ...additionalWords])]);
+        } catch (err) {
+            console.error(`Failed to fetch more words for complexity ${wordComplexityLevel.current}:`, err);
+            // Add a few fallback words to prevent game from stalling if API fails mid-game
+            setWordBank(prev => [...new Set([...prev, 'network', 'issue', 'try', 'again', 'later'])]);
+        } finally {
+            setIsFetchingWords(false);
+        }
+    }, [isFetchingWords]);
+
+    const spawnWord = useCallback((powerUp?: PowerUpType) => {
+        if (!gameContainerRef.current) return;
+        if (!powerUp && wordBank.length === 0) return;
 
         const gameWidth = gameContainerRef.current.offsetWidth;
-        const randomWord = wordBank[Math.floor(Math.random() * wordBank.length)];
+        
+        let randomWord: string;
+        let wordText: string;
+        switch(powerUp) {
+            case 'slow-time': wordText = 'SLOW'; break;
+            case 'bomb': wordText = 'BOMB'; break;
+            case 'clear-words': wordText = 'CLEAR'; break;
+            default: wordText = wordBank[Math.floor(Math.random() * wordBank.length)];
+        }
+        randomWord = wordText;
         
         let spawnX: number;
         let attempts = 0;
@@ -88,19 +122,21 @@ const App: React.FC = () => {
             attempts++;
         } while (!positionValid && attempts < 10);
 
-
         const newWord: Word = {
             id: Date.now() + Math.random(),
             text: randomWord,
             x: Math.max(0, spawnX),
             y: -20,
             status: 'falling',
+            powerUp,
         };
         setWords(prev => [...prev, newWord]);
     }, [wordBank, words]);
 
     const gameLoop = useCallback(() => {
         if (gameStatus !== GameStatus.Playing) return;
+        
+        setActivePowerUps(prev => prev.filter(p => p.expiration > Date.now()));
 
         setWords(prevWords => {
             const gameHeight = gameContainerRef.current?.offsetHeight ?? 800;
@@ -119,7 +155,7 @@ const App: React.FC = () => {
                     }
                     return newLives;
                 });
-                setCombo(0); // Reset combo on missed word
+                setCombo(0);
             }
 
             return prevWords.map(word => ({
@@ -163,21 +199,39 @@ const App: React.FC = () => {
         if (level > 1 && gameStatus === GameStatus.Playing) {
             setShowLevelUp(true);
             setTimeout(() => setShowLevelUp(false), 1500);
-            
-            const fetchNewWords = async () => {
-                wordComplexityLevel.current += 1;
-                try {
-                    const additionalWords = await fetchWords(wordComplexityLevel.current);
-                    setWordBank(prev => [...new Set([...prev, ...additionalWords])]);
-                } catch (err) {
-                    console.error(`Failed to fetch more words for complexity ${wordComplexityLevel.current}:`, err);
-                }
-            };
-            fetchNewWords();
         }
     }, [level, gameStatus]);
 
+    useEffect(() => {
+        if (gameStatus === GameStatus.Playing && wordBank.length < 50 && !isFetchingWords) {
+            fetchMoreWords();
+        }
+    }, [gameStatus, wordBank.length, isFetchingWords, fetchMoreWords]);
 
+    const activatePowerUp = (powerUp: PowerUpType) => {
+        switch (powerUp) {
+            case 'slow-time':
+                setActivePowerUps(prev => [...prev, { type: 'slow-time', expiration: Date.now() + POWERUP_DURATIONS.slowTime }]);
+                break;
+            case 'bomb':
+                setWords(prev => prev.map(w => w.status === 'falling' ? { ...w, status: 'destroyed' } : w));
+                setTimeout(() => setWords(prev => prev.filter(w => w.status !== 'destroyed')), 600);
+                break;
+            case 'clear-words':
+                setWords(prev => {
+                    const fallingWords = prev.filter(w => w.status === 'falling');
+                    const wordsToClear = new Set();
+                    for (let i = 0; i < 3 && fallingWords.length > 0; i++) {
+                        const randomIndex = Math.floor(Math.random() * fallingWords.length);
+                        wordsToClear.add(fallingWords.splice(randomIndex, 1)[0].id);
+                    }
+                    return prev.map(w => wordsToClear.has(w.id) ? { ...w, status: 'destroyed' } : w);
+                });
+                setTimeout(() => setWords(prev => prev.filter(w => w.status !== 'destroyed')), 600);
+                break;
+        }
+    };
+    
     const handleInputChange = (newValue: string) => {
         const lowercasedValue = newValue.toLowerCase();
     
@@ -186,7 +240,7 @@ const App: React.FC = () => {
         }
     
         if (lowercasedValue.length > typedInput.length) {
-            const isCorrectPrefix = words.some(word => word.status === 'falling' && word.text.startsWith(lowercasedValue));
+            const isCorrectPrefix = words.some(word => word.status === 'falling' && word.text.toLowerCase().startsWith(lowercasedValue));
             if (isCorrectPrefix) {
                 setInputStatus('correct');
             } else {
@@ -201,58 +255,87 @@ const App: React.FC = () => {
             setInputStatus('idle');
         }
     
-        setTypedInput(lowercasedValue);
+        setTypedInput(newValue);
     };
 
     useEffect(() => {
         const trimmedInput = typedInput.trim().toLowerCase();
         if (!trimmedInput) return;
-
-        const matchedWord = words.find(word => word.status === 'falling' && word.text === trimmedInput);
-        if (matchedWord) {
+    
+        const matchedWords = words.filter(word => word.status === 'falling' && word.text.toLowerCase() === trimmedInput);
+    
+        if (matchedWords.length > 0) {
             const gameHeight = gameContainerRef.current?.offsetHeight ?? 800;
             
-            // 1. Base Score
-            const baseScore = matchedWord.text.length;
+            let totalPointsGained = 0;
+            const newFloatingScores: FloatingScore[] = [];
+            const idsToDestroy = new Set<number>();
+    
+            matchedWords.forEach(matchedWord => {
+                idsToDestroy.add(matchedWord.id);
+    
+                if (matchedWord.powerUp) {
+                    activatePowerUp(matchedWord.powerUp);
+                } else {
+                    const baseScore = matchedWord.text.length;
+                    const zoneHeight = gameHeight / 20;
+                    const wordY = Math.max(0, Math.min(gameHeight - 1, matchedWord.y));
+                    const zoneIndex = Math.floor(wordY / zoneHeight);
+                    const positionBonusMultiplier = (19 - zoneIndex) / 19.0;
+                    const positionBonus = Math.ceil(baseScore * positionBonusMultiplier);
+                    const comboBonus = Math.round(baseScore * (combo * 0.1));
+                    const totalBonus = positionBonus + comboBonus;
+                    const finalPoints = baseScore + totalBonus;
+                    totalPointsGained += finalPoints;
 
-            // 2. Positional Bonus (stricter with 20 zones)
-            const zoneHeight = gameHeight / 20;
-            const wordY = Math.max(0, Math.min(gameHeight - 1, matchedWord.y));
-            const zoneIndex = Math.floor(wordY / zoneHeight);
-            const positionBonusMultiplier = (19 - zoneIndex) / 19.0;
-            const positionBonus = Math.ceil(baseScore * positionBonusMultiplier);
-
-            // 3. Combo Bonus
-            const comboBonus = Math.round(baseScore * (combo * 0.1));
-
-            // Total bonus and final score
-            const totalBonus = positionBonus + comboBonus;
-            const finalPoints = baseScore + totalBonus;
-
-
-            setScore(prev => prev + finalPoints);
+                    newFloatingScores.push({
+                        id: Date.now() + Math.random(),
+                        base: baseScore,
+                        bonus: totalBonus,
+                        x: matchedWord.x,
+                        y: matchedWord.y,
+                    });
+                     // Increment power-up progress for each regular word cleared
+                     setPowerUpProgress(prev => {
+                        const newProgress = {
+                            slowTime: prev.slowTime + 1,
+                            bomb: prev.bomb + 1,
+                            clearWords: prev.clearWords + 1,
+                        };
+                        if (newProgress.slowTime >= POWERUP_THRESHOLDS.slowTime) {
+                            spawnWord('slow-time');
+                            newProgress.slowTime = 0;
+                        }
+                        if (newProgress.bomb >= POWERUP_THRESHOLDS.bomb) {
+                            spawnWord('bomb');
+                            newProgress.bomb = 0;
+                        }
+                        if (newProgress.clearWords >= POWERUP_THRESHOLDS.clearWords) {
+                            spawnWord('clear-words');
+                            newProgress.clearWords = 0;
+                        }
+                        return newProgress;
+                    });
+                }
+            });
+    
+            setScore(prev => prev + totalPointsGained);
             setCombo(prev => prev + 1);
-
-            const newFloatingScore: FloatingScore = {
-                id: Date.now(),
-                base: baseScore,
-                bonus: totalBonus,
-                x: matchedWord.x,
-                y: matchedWord.y,
-            };
-            setFloatingScores(prev => [...prev, newFloatingScore]);
+    
+            setFloatingScores(prev => [...prev, ...newFloatingScores]);
+            const newScoreIds = newFloatingScores.map(fs => fs.id);
             setTimeout(() => {
-                setFloatingScores(prev => prev.filter(fs => fs.id !== newFloatingScore.id));
+                setFloatingScores(prev => prev.filter(fs => !newScoreIds.includes(fs.id)));
             }, 1000);
-
-            setWords(prevWords => prevWords.map(w => w.id === matchedWord.id ? { ...w, status: 'destroyed' } : w));
+    
+            setWords(prevWords => prevWords.map(w => idsToDestroy.has(w.id) ? { ...w, status: 'destroyed' } : w));
             setTypedInput('');
             
             setTimeout(() => {
-                setWords(prevWords => prevWords.filter(w => w.id !== matchedWord.id));
+                setWords(prevWords => prevWords.filter(w => !idsToDestroy.has(w.id)));
             }, 600);
         }
-    }, [typedInput, words, combo]);
+    }, [typedInput, words, combo, spawnWord]);
 
     useEffect(() => {
         return () => {
@@ -280,6 +363,7 @@ const App: React.FC = () => {
                         showLevelUp={showLevelUp}
                         inputStatus={inputStatus}
                         floatingScores={floatingScores}
+                        isTimeSlowed={activePowerUps.some(p => p.type === 'slow-time')}
                     />
                 );
             case GameStatus.GameOver:
@@ -322,9 +406,10 @@ const App: React.FC = () => {
                         </div>
                     </div>
 
-
-                    {/* Right side spacer for balance */}
-                    <div className="w-64 flex-shrink-0"></div>
+                    {/* Right side for Power-ups */}
+                    <div className="w-64 flex-shrink-0 pt-8">
+                        {gameStatus === GameStatus.Playing && <PowerUpBar progress={powerUpProgress} />}
+                    </div>
                 </div>
             </div>
         </div>

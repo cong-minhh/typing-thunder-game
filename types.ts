@@ -1,9 +1,12 @@
+export type PowerUpType = 'slow-time' | 'bomb' | 'clear-words';
+
 export interface Word {
   id: number;
   text: string;
   x: number;
   y: number;
   status: 'falling' | 'destroyed';
+  powerUp?: PowerUpType;
 }
 
 export enum GameStatus {
@@ -22,9 +25,7 @@ export interface FloatingScore {
   y: number;
 }
 
-export interface TrailParticle {
-  id: number;
-  x: number;
-  y: number;
-  expiration: number;
+export interface ActivePowerUp {
+    type: PowerUpType;
+    expiration: number;
 }

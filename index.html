@@ -106,29 +106,17 @@
   .animate-shrink-pulse {
     animation: shrink-pulse 4s ease-in-out infinite;
   }
-  @keyframes trail-fade-out {
-    from { opacity: 0.7; transform: scale(1); }
-    to { opacity: 0; transform: scale(0.5); }
+  @keyframes rainbow-flow {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
   }
-  .animate-trail-fade-out {
-    animation: trail-fade-out 0.7s ease-out forwards;
-  }
-  @keyframes base-score-pop {
-    0% { transform: scale(0.8); opacity: 0; }
-    50% { transform: scale(1.1); opacity: 1; }
-    100% { transform: scale(1); opacity: 1; }
-  }
-  .animate-base-score-pop {
-    display: inline-block;
-    animation: base-score-pop 0.4s ease-out;
-  }
-  @keyframes bonus-score-slide-in {
-    0% { transform: translateX(20px) scale(0.8); opacity: 0; }
-    100% { transform: translateX(0) scale(1); opacity: 1; }
-  }
-  .animate-bonus-score-slide-in {
-    display: inline-block;
-    animation: bonus-score-slide-in 0.4s 0.1s ease-out backwards;
+  .rainbow-text {
+    background: linear-gradient(to right, #ef4444, #f97316, #eab308, #84cc16, #22c55e, #14b8a6, #06b6d4, #3b82f6, #8b5cf6, #d946ef, #ef4444);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: rainbow-flow 3s linear infinite;
   }
 </style>
 </head>
