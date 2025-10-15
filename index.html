@@ -76,8 +76,8 @@
     animation: explode-particle 0.6s ease-out forwards;
   }
   @keyframes float-up {
-      0% { transform: translateY(0); opacity: 1; text-shadow: 0 0 5px #facc15; }
-      100% { transform: translateY(-60px); opacity: 0; text-shadow: 0 0 20px #facc15; }
+      0% { transform: translateY(0); opacity: 1; }
+      100% { transform: translateY(-60px); opacity: 0; }
   }
   .animate-float-up {
       animation: float-up 1s ease-out forwards;
@@ -105,6 +105,13 @@
   }
   .animate-shrink-pulse {
     animation: shrink-pulse 4s ease-in-out infinite;
+  }
+  @keyframes trail-fade-out {
+    from { opacity: 0.7; transform: scale(1); }
+    to { opacity: 0; transform: scale(0.5); }
+  }
+  .animate-trail-fade-out {
+    animation: trail-fade-out 0.7s ease-out forwards;
   }
 </style>
 </head>

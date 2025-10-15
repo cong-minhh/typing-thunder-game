@@ -7,6 +7,7 @@ import GameOverScreen from './components/GameOverScreen';
 import ComboIndicator from './components/ComboIndicator';
 import { INITIAL_LIVES, LEVEL_UP_SCORE, WORD_FALL_SPEED_INCREASE, WORD_SPAWN_RATE_DECREASE, DIFFICULTY_SETTINGS } from './constants';
 import HeartIcon from './components/UI/HeartIcon';
+import BackgroundAnimation from './components/BackgroundAnimation';
 
 const App: React.FC = () => {
     const [gameStatus, setGameStatus] = useState<GameStatus>(GameStatus.Start);
@@ -210,22 +211,32 @@ const App: React.FC = () => {
         const matchedWord = words.find(word => word.status === 'falling' && word.text === trimmedInput);
         if (matchedWord) {
             const gameHeight = gameContainerRef.current?.offsetHeight ?? 800;
-            const basePoints = matchedWord.text.length;
             
-            // Position bonus: More points for words higher up.
-            const positionMultiplier = 1 - (matchedWord.y / gameHeight);
-            const pointsFromPosition = Math.ceil(basePoints * Math.max(0.1, positionMultiplier));
-            
-            // Combo bonus: Multiplier increases with combo.
-            const comboBonusMultiplier = 1 + (combo * 0.1);
-            const finalPoints = Math.round(pointsFromPosition * comboBonusMultiplier);
+            // 1. Base Score
+            const baseScore = matchedWord.text.length;
+
+            // 2. Positional Bonus (stricter with 20 zones)
+            const zoneHeight = gameHeight / 20;
+            const wordY = Math.max(0, Math.min(gameHeight - 1, matchedWord.y));
+            const zoneIndex = Math.floor(wordY / zoneHeight);
+            const positionBonusMultiplier = (19 - zoneIndex) / 19.0;
+            const positionBonus = Math.ceil(baseScore * positionBonusMultiplier);
+
+            // 3. Combo Bonus
+            const comboBonus = Math.round(baseScore * (combo * 0.1));
+
+            // Total bonus and final score
+            const totalBonus = positionBonus + comboBonus;
+            const finalPoints = baseScore + totalBonus;
+
 
             setScore(prev => prev + finalPoints);
             setCombo(prev => prev + 1);
 
             const newFloatingScore: FloatingScore = {
                 id: Date.now(),
-                value: finalPoints,
+                base: baseScore,
+                bonus: totalBonus,
                 x: matchedWord.x,
                 y: matchedWord.y,
             };
@@ -279,39 +290,42 @@ const App: React.FC = () => {
     };
     
     return (
-        <div className="flex flex-col items-center justify-center min-h-screen font-mono p-4">
-            <h1 className="text-5xl font-bold text-cyan-400 mb-2 tracking-widest" style={{ textShadow: '0 0 10px #0ff' }}>
-                TYPING THUNDER
-            </h1>
-            <div className="w-full max-w-6xl mx-auto flex justify-center items-start gap-8">
-                {/* Left side for Combo */}
-                <div className="w-64 flex-shrink-0 flex justify-center pt-8">
-                    {gameStatus === GameStatus.Playing && <ComboIndicator combo={combo} />}
-                </div>
-
-                {/* Game container */}
-                <div className="w-full max-w-4xl">
-                    {gameStatus === GameStatus.Playing && (
-                        <div className="p-4 bg-slate-900/50 backdrop-blur-sm flex justify-between items-center z-10 border-b border-x border-t border-cyan-400/30 rounded-t-lg">
-                            <div className="flex items-center space-x-4">
-                                <h2 className="text-xl font-bold">Score: <span key={score} className="text-cyan-400 w-24 inline-block animate-score-pop">{score}</span></h2>
-                                <h2 className="text-xl font-bold">Level: <span className="text-green-400">{level}</span></h2>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                                {Array.from({ length: lives }).map((_, i) => (
-                                    <HeartIcon key={i} />
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                    <div className={`w-full max-w-4xl h-[70vh] bg-slate-800/50 border-2 border-cyan-400/50 rounded-lg shadow-2xl shadow-cyan-500/10 relative overflow-hidden ${isShaking ? 'animate-shake' : ''} ${gameStatus === GameStatus.Playing ? 'rounded-t-none border-t-0' : ''}`}>
-                        {renderContent()}
+        <div className="relative flex flex-col items-center justify-center min-h-screen font-mono p-4 overflow-hidden">
+            <BackgroundAnimation />
+            <div className="relative z-10 flex flex-col items-center w-full">
+                <h1 className="text-5xl font-bold text-cyan-400 mb-2 tracking-widest" style={{ textShadow: '0 0 10px #0ff' }}>
+                    TYPING THUNDER
+                </h1>
+                <div className="w-full max-w-6xl mx-auto flex justify-center items-start gap-8">
+                    {/* Left side for Combo */}
+                    <div className="w-64 flex-shrink-0 flex justify-center pt-8">
+                        {gameStatus === GameStatus.Playing && <ComboIndicator combo={combo} />}
                     </div>
+
+                    {/* Game container */}
+                    <div className="w-full max-w-4xl">
+                        {gameStatus === GameStatus.Playing && (
+                            <div className="p-4 bg-slate-900/50 backdrop-blur-sm flex justify-between items-center z-10 border-b border-x border-t border-cyan-400/30 rounded-t-lg">
+                                <div className="flex items-center space-x-4">
+                                    <h2 className="text-xl font-bold">Score: <span key={score} className="text-cyan-400 w-24 inline-block animate-score-pop">{score}</span></h2>
+                                    <h2 className="text-xl font-bold">Level: <span className="text-green-400">{level}</span></h2>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    {Array.from({ length: lives }).map((_, i) => (
+                                        <HeartIcon key={i} />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        <div className={`w-full max-w-4xl h-[70vh] bg-slate-800/50 border-2 border-cyan-400/50 rounded-lg shadow-2xl shadow-cyan-500/10 relative overflow-hidden ${isShaking ? 'animate-shake' : ''} ${gameStatus === GameStatus.Playing ? 'rounded-t-none border-t-0' : ''}`}>
+                            {renderContent()}
+                        </div>
+                    </div>
+
+
+                    {/* Right side spacer for balance */}
+                    <div className="w-64 flex-shrink-0"></div>
                 </div>
-
-
-                {/* Right side spacer for balance */}
-                <div className="w-64 flex-shrink-0"></div>
             </div>
         </div>
     );

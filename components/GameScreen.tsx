@@ -1,5 +1,5 @@
-import React, { useRef, useEffect } from 'react';
-import { Word, FloatingScore } from '../types';
+import React, { useRef, useEffect, useState } from 'react';
+import { Word, FloatingScore, TrailParticle } from '../types';
 import FallingWord from './FallingWord';
 
 interface GameScreenProps {
@@ -22,10 +22,58 @@ const GameScreen: React.FC<GameScreenProps> = ({
     floatingScores,
 }) => {
     const inputRef = useRef<HTMLInputElement>(null);
+    const [trailParticles, setTrailParticles] = useState<TrailParticle[]>([]);
+    const wordElementsRef = useRef<Map<number, HTMLDivElement | null>>(new Map());
+    const wordsRef = useRef(words);
+    wordsRef.current = words;
 
     useEffect(() => {
         inputRef.current?.focus();
     }, []);
+
+    useEffect(() => {
+        let animationFrameId: number;
+
+        const trailLoop = () => {
+            const now = Date.now();
+            const newParticles: TrailParticle[] = [];
+
+            const currentWords = wordsRef.current;
+            currentWords.forEach(word => {
+                if (word.status !== 'falling') return;
+                
+                const el = wordElementsRef.current.get(word.id);
+                if (el && Math.random() > 0.5) {
+                    const gameContainerRect = gameContainerRef.current?.getBoundingClientRect();
+                    if (gameContainerRect) {
+                        const wordRect = el.getBoundingClientRect();
+                        const x = (wordRect.left - gameContainerRect.left) + (wordRect.width / 2);
+                        const y = (wordRect.top - gameContainerRect.top) + (wordRect.height / 2);
+
+                        newParticles.push({
+                            id: Math.random(),
+                            x: x + (Math.random() - 0.5) * wordRect.width,
+                            y: y,
+                            expiration: now + 700,
+                        });
+                    }
+                }
+            });
+
+            setTrailParticles(prev => [
+                ...prev.filter(p => p.expiration > now),
+                ...newParticles,
+            ]);
+
+            animationFrameId = requestAnimationFrame(trailLoop);
+        };
+
+        trailLoop();
+        
+        return () => {
+            cancelAnimationFrame(animationFrameId);
+        }
+    }, [gameContainerRef]);
 
     const statusClass = {
         idle: 'border-cyan-400 focus:ring-4 focus:ring-cyan-500/50 focus:border-cyan-300',
@@ -46,19 +94,50 @@ const GameScreen: React.FC<GameScreenProps> = ({
 
             {/* Floating Scores */}
             {floatingScores.map(fs => (
-                <div 
-                    key={fs.id} 
-                    className="absolute text-yellow-400 text-2xl font-bold animate-float-up"
-                    style={{ left: `${fs.x}px`, top: `${fs.y}px` }}
+                <div
+                    key={fs.id}
+                    className="absolute text-2xl font-bold animate-float-up flex items-baseline"
+                    style={{ left: `${fs.x}px`, top: `${fs.y}px`, textShadow: 'none' }}
                 >
-                    +{fs.value}
+                    <span className="text-yellow-400" style={{ textShadow: '0 0 8px #facc15' }}>
+                        +{fs.base}
+                    </span>
+                    {fs.bonus > 0 && (
+                        <span className="text-green-400 text-xl ml-2" style={{ textShadow: '0 0 8px #4ade80' }}>
+                            +{fs.bonus}
+                        </span>
+                    )}
                 </div>
+            ))}
+            
+            {/* Trail Particles */}
+            {trailParticles.map(p => (
+                <div
+                    key={p.id}
+                    className="absolute w-1.5 h-1.5 bg-cyan-400 rounded-full pointer-events-none animate-trail-fade-out"
+                    style={{
+                        left: `${p.x}px`,
+                        top: `${p.y}px`,
+                        filter: 'blur(1px)',
+                    }}
+                />
             ))}
 
             {/* Falling Words */}
             <div className="absolute inset-0">
                 {words.map(word => (
-                    <FallingWord key={word.id} word={word} typedInput={typedInput} />
+                    <FallingWord 
+                        key={word.id} 
+                        word={word} 
+                        typedInput={typedInput} 
+                        ref={el => {
+                            if (el) {
+                                wordElementsRef.current.set(word.id, el);
+                            } else {
+                                wordElementsRef.current.delete(word.id);
+                            }
+                        }}
+                    />
                 ))}
             </div>
 

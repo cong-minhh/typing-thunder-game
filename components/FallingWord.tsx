@@ -6,7 +6,7 @@ interface FallingWordProps {
     typedInput: string;
 }
 
-const FallingWord: React.FC<FallingWordProps> = ({ word, typedInput }) => {
+const FallingWord = React.forwardRef<HTMLDivElement, FallingWordProps>(({ word, typedInput }, ref) => {
     const isTyping = word.status === 'falling' && word.text.startsWith(typedInput) && typedInput !== '';
     const isDestroyed = word.status === 'destroyed';
 
@@ -23,11 +23,19 @@ const FallingWord: React.FC<FallingWordProps> = ({ word, typedInput }) => {
     };
 
     const typedPartSpans = typedPart.split('').map((char, index) => (
-        <span key={index} className="animate-letter-pop text-green-400 font-bold">{char}</span>
+        <span
+            key={index}
+            className="animate-letter-pop text-yellow-400 font-bold"
+            style={{ textShadow: '0 0 8px #facc15' }} // yellow-400 glow
+        >
+            {char}
+        </span>
     ));
 
+    const explosionColors = ['bg-cyan-400', 'bg-green-400', 'bg-yellow-400'];
+
     return (
-        <div style={wordStyle} className="relative">
+        <div ref={ref} style={wordStyle} className="relative">
             {/* The visible word text */}
             <div
                 className={`select-none text-2xl font-semibold transition-colors duration-150 ${isTyping ? 'text-cyan-300' : 'text-slate-300'}`}
@@ -36,21 +44,23 @@ const FallingWord: React.FC<FallingWordProps> = ({ word, typedInput }) => {
                 <span>{untypedPart}</span>
             </div>
             {/* Particle explosion on destroy */}
-            {isDestroyed && Array.from({ length: 8 }).map((_, i) => (
-                 <div
-                    key={i}
-                    className="absolute top-1/2 left-1/2 w-2 h-2 bg-cyan-400 rounded-full animate-explode-particle"
-                    // FIX: Cast style object to React.CSSProperties to allow for custom properties used in the animation.
-                    style={{
-                        '--x': `${(Math.random() - 0.5) * 150}px`,
-                        '--y': `${(Math.random() - 0.5) * 150}px`,
-                        '--s': `${Math.random() + 0.5}`,
-                    } as React.CSSProperties}
-                 />
-            ))}
+            {isDestroyed && Array.from({ length: 15 }).map((_, i) => {
+                 const color = explosionColors[i % explosionColors.length];
+                 return (
+                    <div
+                        key={i}
+                        className={`absolute top-1/2 left-1/2 w-2 h-2 ${color} rounded-full animate-explode-particle`}
+                        style={{
+                            '--x': `${(Math.random() - 0.5) * 150}px`,
+                            '--y': `${(Math.random() - 0.5) * 150}px`,
+                            '--s': `${Math.random() + 0.5}`,
+                        } as React.CSSProperties}
+                    />
+                 );
+            })}
         </div>
     );
-};
+});
 
 const areEqual = (prevProps: FallingWordProps, nextProps: FallingWordProps) => {
     return (
@@ -65,4 +75,4 @@ const areEqual = (prevProps: FallingWordProps, nextProps: FallingWordProps) => {
 }
 
 
-export default React.memo(FallingWord);
+export default React.memo(FallingWord, areEqual);

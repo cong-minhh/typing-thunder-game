@@ -16,7 +16,15 @@ export type Difficulty = 'Easy' | 'Medium' | 'Hard';
 
 export interface FloatingScore {
   id: number;
-  value: number;
+  base: number;
+  bonus: number;
   x: number;
   y: number;
+}
+
+export interface TrailParticle {
+  id: number;
+  x: number;
+  y: number;
+  expiration: number;
 }
