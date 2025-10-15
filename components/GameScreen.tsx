@@ -11,6 +11,7 @@ interface GameScreenProps {
     inputStatus: 'idle' | 'correct' | 'incorrect';
     floatingScores: FloatingScore[];
     isTimeSlowed: boolean;
+    isPaused: boolean;
 }
 
 const GameScreen: React.FC<GameScreenProps> = ({
@@ -22,12 +23,15 @@ const GameScreen: React.FC<GameScreenProps> = ({
     inputStatus,
     floatingScores,
     isTimeSlowed,
+    isPaused,
 }) => {
     const inputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        inputRef.current?.focus();
-    }, []);
+        if (!isPaused) {
+            inputRef.current?.focus();
+        }
+    }, [isPaused]);
 
     const statusClass = {
         idle: 'border-cyan-400 focus:ring-4 focus:ring-cyan-500/50 focus:border-cyan-300',
@@ -83,12 +87,13 @@ const GameScreen: React.FC<GameScreenProps> = ({
                     type="text"
                     value={typedInput}
                     onChange={(e) => onInputChange(e.target.value)}
-                    className={`w-full p-4 text-2xl text-center bg-slate-900/80 border-2 rounded-lg outline-none transition-all duration-300 text-white placeholder-slate-500 ${statusClass}`}
+                    className={`w-full p-4 text-2xl text-center bg-slate-900/80 border-2 rounded-lg outline-none transition-all duration-300 text-white placeholder-slate-500 ${statusClass} disabled:bg-slate-700/50`}
                     placeholder="Type words here..."
                     autoCapitalize="none"
                     autoComplete="off"
                     autoCorrect="off"
                     spellCheck="false"
+                    disabled={isPaused}
                 />
             </div>
         </div>

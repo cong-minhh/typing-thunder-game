@@ -12,6 +12,7 @@ export interface Word {
 export enum GameStatus {
   Start,
   Playing,
+  Paused,
   GameOver,
 }
 
@@ -22,6 +23,7 @@ export interface FloatingScore {
   base: number;
   bonus: number;
   x: number;
+
   y: number;
 }
 

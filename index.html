@@ -118,6 +118,13 @@
     color: transparent;
     animation: rainbow-flow 3s linear infinite;
   }
+  @keyframes pulse-glow-cyan {
+    0%, 100% { box-shadow: 0 0 5px #06b6d4, 0 0 10px #06b6d4; }
+    50% { box-shadow: 0 0 15px #06b6d4, 0 0 25px #06b6d4; }
+  }
+  .animate-pulse-glow-cyan {
+    animation: pulse-glow-cyan 2s ease-in-out infinite;
+  }
 </style>
 </head>
 <body class="bg-slate-900 text-white">
