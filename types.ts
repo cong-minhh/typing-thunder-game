@@ -1,3 +1,5 @@
+
+// Fix: Removed self-import of GameStatus which was causing a declaration conflict.
 export enum GameStatus {
     Start,
     Settings,
@@ -19,7 +21,7 @@ export enum LevelPhase {
 
 export type Difficulty = 'Easy' | 'Medium' | 'Hard';
 
-export type PowerUpType = 'slow-time' | 'clear-words' | 'shield' | 'score-multiplier';
+export type PowerUpType = 'slow-time' | 'clear-words' | 'shield' | 'score-multiplier' | 'unify' | 'frenzy';
 
 export interface GameSettings {
     startingLives: number;
@@ -35,6 +37,7 @@ export interface Word {
     status: 'falling' | 'destroyed';
     powerUp?: PowerUpType;
     isWaveWord?: boolean;
+    isTransformed?: boolean;
 }
 
 export interface FloatingScore {
@@ -67,6 +70,7 @@ export interface GameStats {
     startTime: number;
     totalMistypes: number;
     totalCharsCompleted: number;
+    totalWordsCleared: number;
     longestCombo: number;
     // For post-game calculation
     wpm: number;

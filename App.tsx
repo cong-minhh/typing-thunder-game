@@ -22,16 +22,19 @@ import { leaderboardService } from './services/leaderboardService';
 import LeaderboardScreen from './components/LeaderboardScreen';
 
 const POWERUP_SPAWN_CHANCE = 0.05; // 5% chance
+const FRENZY_RADIUS = 150; // pixels
 
 const powerUpTypeToStateKey: { [key in PowerUpType]: keyof typeof POWERUP_THRESHOLDS } = {
     'slow-time': 'slowTime',
     'clear-words': 'clearWords',
     'shield': 'shield',
-    'score-multiplier': 'scoreMultiplier'
+    'score-multiplier': 'scoreMultiplier',
+    'unify': 'unify',
+    'frenzy': 'frenzy'
 };
 
 const initialGameStats: GameStats = {
-    startTime: 0, totalMistypes: 0, totalCharsCompleted: 0, longestCombo: 0,
+    startTime: 0, totalMistypes: 0, totalCharsCompleted: 0, totalWordsCleared: 0, longestCombo: 0,
     wpm: 0, accuracy: 0, grade: 'F',
 };
 
@@ -48,8 +51,8 @@ const App: React.FC = () => {
     const [inputStatus, setInputStatus] = useState<'idle' | 'correct' | 'incorrect'>('idle');
     const [combo, setCombo] = useState<number>(0);
     const [floatingScores, setFloatingScores] = useState<FloatingScore[]>([]);
-    const [powerUpProgress, setPowerUpProgress] = useState({ slowTime: 0, clearWords: 0, shield: 0, scoreMultiplier: 0 });
-    const [powerUpsReady, setPowerUpsReady] = useState({ slowTime: false, clearWords: false, shield: false, scoreMultiplier: false });
+    const [powerUpProgress, setPowerUpProgress] = useState({ slowTime: 0, clearWords: 0, shield: 0, scoreMultiplier: 0, unify: 0, frenzy: 0 });
+    const [powerUpsReady, setPowerUpsReady] = useState({ slowTime: false, clearWords: false, shield: false, scoreMultiplier: false, unify: false, frenzy: false });
     const [activePowerUps, setActivePowerUps] = useState<ActivePowerUp[]>([]);
     const [gameWords, setGameWords] = useState<string[]>([]);
     const [isWiping, setIsWiping] = useState(false);
@@ -71,6 +74,7 @@ const App: React.FC = () => {
     const animationFrameId = useRef<number | null>(null);
     const lastSpawnTime = useRef<number>(Date.now());
     const gameContainerRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
     const inputStatusTimeout = useRef<number | null>(null);
     const resumeAnimation = useRef<{startTime: number, duration: number} | null>(null);
     const prevLivesRef = useRef(lives);
@@ -78,6 +82,8 @@ const App: React.FC = () => {
     
     const isTimeSlowed = activePowerUps.some(p => p.type === 'slow-time');
     const isScoreBoosted = activePowerUps.some(p => p.type === 'score-multiplier');
+    const isFrenzyActive = activePowerUps.some(p => p.type === 'frenzy');
+
     const fallSpeedMultiplier = isTimeSlowed ? 0.4 : 1;
     let baseWordFallSpeed = gameSettings.fallSpeedStart + (level - 1) * WORD_FALL_SPEED_INCREASE;
     let wordFallSpeed = baseWordFallSpeed;
@@ -107,8 +113,8 @@ const App: React.FC = () => {
         setLevel(1);
         setCombo(0);
         setFloatingScores([]);
-        setPowerUpProgress({ slowTime: 0, clearWords: 0, shield: 0, scoreMultiplier: 0 });
-        setPowerUpsReady({ slowTime: false, clearWords: false, shield: false, scoreMultiplier: false });
+        setPowerUpProgress({ slowTime: 0, clearWords: 0, shield: 0, scoreMultiplier: 0, unify: 0, frenzy: 0 });
+        setPowerUpsReady({ slowTime: false, clearWords: false, shield: false, scoreMultiplier: false, unify: false, frenzy: false });
         setActivePowerUps([]);
         setShieldActive(false);
         setIsLosingLife(false);
@@ -409,18 +415,24 @@ const App: React.FC = () => {
     }, [gameStatus, gameLoop]);
 
     const calculateFinalStats = useCallback(() => {
-        const { startTime, totalCharsCompleted, totalMistypes, longestCombo } = gameStats;
-        const durationSeconds = (Date.now() - startTime) / 1000;
+        const stats = gameStats;
+        const durationSeconds = (Date.now() - stats.startTime) / 1000;
         
-        const wpm = durationSeconds > 0 ? Math.round((totalCharsCompleted / 5) / (durationSeconds / 60)) : 0;
-        const accuracy = totalCharsCompleted + totalMistypes > 0 ? Math.round((totalCharsCompleted / (totalCharsCompleted + totalMistypes)) * 100) : 100;
+        const wpm = durationSeconds > 0 ? Math.round((stats.totalCharsCompleted / 5) / (durationSeconds / 60)) : 0;
+        const accuracy = stats.totalCharsCompleted + stats.totalMistypes > 0 ? Math.round((stats.totalCharsCompleted / (stats.totalCharsCompleted + stats.totalMistypes)) * 100) : 100;
         
-        // Weighted score for grading
-        const gradeScore = (wpm * 1.5) + (accuracy * 2) + (longestCombo * 5);
-        const grade = Object.entries(GRADE_THRESHOLDS).find(([, threshold]) => gradeScore >= threshold)?.[0] || 'F';
+        // Refined weighted score for grading
+        const baseScore = (wpm * 1.5) + (accuracy * 2.5) + (stats.longestCombo * 5) + (level * 20) + (stats.totalWordsCleared * 0.5);
+        
+        let difficultyMultiplier = 1.0;
+        if (activeDifficulty === 'Easy') difficultyMultiplier = 0.8;
+        if (activeDifficulty === 'Hard') difficultyMultiplier = 1.25;
+
+        const finalGradeScore = baseScore * difficultyMultiplier;
+        const grade = Object.entries(GRADE_THRESHOLDS).find(([, threshold]) => finalGradeScore >= threshold)?.[0] || 'F';
 
         setGameStats(prev => ({ ...prev, wpm, accuracy, grade }));
-    }, [gameStats]);
+    }, [gameStats, level, activeDifficulty]);
 
     useEffect(() => {
         if (lives <= 0 && gameStatus === GameStatus.Playing) {
@@ -449,6 +461,17 @@ const App: React.FC = () => {
             setShieldActive(true);
         } else if (powerUpType === 'score-multiplier') {
             setActivePowerUps(prev => [...prev, { type: 'score-multiplier', expiration: Date.now() + POWERUP_DURATIONS.scoreMultiplier }]);
+        } else if (powerUpType === 'unify') {
+            const alphabet = 'abcdefghijklmnopqrstuvwxyz';
+            const randomChar = alphabet[Math.floor(Math.random() * alphabet.length)];
+            setWords(prev => {
+                const fallingWords = prev.filter(w => w.status === 'falling');
+                const lowestWords = fallingWords.sort((a, b) => b.y - a.y).slice(0, 10);
+                const lowestWordIds = new Set(lowestWords.map(w => w.id));
+                return prev.map(w => lowestWordIds.has(w.id) ? { ...w, text: randomChar, isTransformed: true } : w);
+            });
+        } else if (powerUpType === 'frenzy') {
+            setActivePowerUps(prev => [...prev, { type: 'frenzy', expiration: Date.now() + POWERUP_DURATIONS.frenzy }]);
         }
     }, []);
 
@@ -474,6 +497,26 @@ const App: React.FC = () => {
         let regularWordsCleared = 0;
         let charsInCompletedWords = 0;
 
+        // Handle Frenzy Power-Up
+        const collateralDestroyIds = new Set<number>();
+        if (isFrenzyActive) {
+            const allFallingWords = words.filter(w => w.status === 'falling');
+            matchedWords.forEach(matchedWord => {
+                const centerX = matchedWord.x + (matchedWord.text.length * 15) / 2;
+                const centerY = matchedWord.y;
+
+                allFallingWords.forEach(otherWord => {
+                    if (matchedWord.id === otherWord.id || matchedWords.some(mw => mw.id === otherWord.id)) return;
+                    const otherCenterX = otherWord.x + (otherWord.text.length * 15) / 2;
+                    const otherCenterY = otherWord.y;
+                    const distance = Math.sqrt(Math.pow(centerX - otherCenterX, 2) + Math.pow(centerY - otherCenterY, 2));
+                    if (distance < FRENZY_RADIUS) {
+                        collateralDestroyIds.add(otherWord.id);
+                    }
+                });
+            });
+        }
+
         matchedWords.forEach(matchedWord => {
             idsToDestroy.add(matchedWord.id);
             regularWordsCleared++;
@@ -491,6 +534,27 @@ const App: React.FC = () => {
             });
         });
 
+        // Process collateral words from Frenzy
+        collateralDestroyIds.forEach(id => {
+            if (idsToDestroy.has(id)) return; // Don't process if already being destroyed
+            const word = words.find(w => w.id === id);
+            if (word) {
+                idsToDestroy.add(id);
+                regularWordsCleared++;
+                charsInCompletedWords += word.text.length;
+                const baseScore = Math.round(word.text.length * 0.5); // Frenzy collateral gives half points
+                const finalPoints = Math.round(baseScore * scoreMultiplier);
+                totalPointsGained += finalPoints;
+
+                newFloatingScores.push({
+                    id: Date.now() + Math.random(), base: finalPoints, bonus: 0,
+                    timingLabel: { text: 'FRENZY!', colorClass: 'text-orange-500' },
+                    x: word.x, y: word.y,
+                });
+            }
+        });
+
+
         if (regularWordsCleared > 0 && levelPhase !== LevelPhase.Boss) {
             setWordsClearedThisLevel(prev => prev + regularWordsCleared);
         }
@@ -498,6 +562,7 @@ const App: React.FC = () => {
         setGameStats(prev => ({
             ...prev,
             totalCharsCompleted: prev.totalCharsCompleted + charsInCompletedWords,
+            totalWordsCleared: prev.totalWordsCleared + regularWordsCleared,
             longestCombo: Math.max(prev.longestCombo, combo + 1),
         }));
         
@@ -506,7 +571,7 @@ const App: React.FC = () => {
             const nextReadyState = { ...powerUpsReady };
             let readyStateChanged = false;
             
-            const powerUpKeys: (keyof typeof POWERUP_THRESHOLDS)[] = ['slowTime', 'clearWords', 'shield', 'scoreMultiplier'];
+            const powerUpKeys: (keyof typeof POWERUP_THRESHOLDS)[] = ['slowTime', 'clearWords', 'shield', 'scoreMultiplier', 'unify', 'frenzy'];
             powerUpKeys.forEach(key => {
                 if (!nextReadyState[key]) {
                     nextProgress[key] = Math.min(nextProgress[key] + regularWordsCleared, POWERUP_THRESHOLDS[key]);
@@ -550,7 +615,12 @@ const App: React.FC = () => {
                 const points = (currentBossWord.length || 5) * 5 * (isScoreBoosted ? 2 : 1);
                 setScore(s => s + points);
                 setCombo(prev => prev + 1);
-                setGameStats(prev => ({ ...prev, longestCombo: Math.max(prev.longestCombo, combo + 1), totalCharsCompleted: prev.totalCharsCompleted + currentBossWord.length }));
+                setGameStats(prev => ({ 
+                    ...prev, 
+                    longestCombo: Math.max(prev.longestCombo, combo + 1), 
+                    totalCharsCompleted: prev.totalCharsCompleted + currentBossWord.length,
+                    totalWordsCleared: prev.totalWordsCleared + 1
+                }));
                 setLastCompletionTime(Date.now());
 
                 if (newHealth <= 0) {
@@ -621,7 +691,7 @@ const App: React.FC = () => {
             if (gameStatus !== GameStatus.Playing || isPaused) return;
 
             const powerUpHotkeys: { [key: string]: PowerUpType } = {
-                '1': 'slow-time', '2': 'clear-words', '3': 'shield', '4': 'score-multiplier'
+                '1': 'slow-time', '2': 'clear-words', '3': 'shield', '4': 'score-multiplier', '5': 'unify', '6': 'frenzy'
             };
 
             const powerUpType = powerUpHotkeys[e.key];
@@ -641,6 +711,12 @@ const App: React.FC = () => {
         return () => window.removeEventListener('keydown', handlePowerUpKeys);
     }, [gameStatus, isLosingLife, levelPhase, powerUpsReady, activatePowerUp]);
 
+    useEffect(() => {
+        if (!isLosingLife && gameStatus === GameStatus.Playing) {
+            inputRef.current?.focus();
+        }
+    }, [isLosingLife, gameStatus]);
+    
     useEffect(() => { return () => { if (inputStatusTimeout.current) clearTimeout(inputStatusTimeout.current); }; }, []);
 
     const returnToStart = () => {
@@ -666,7 +742,7 @@ const App: React.FC = () => {
         setGameStatus(GameStatus.Leaderboard);
     };
 
-    const renderContent = () => {
+    const renderScreenContent = () => {
         switch (gameStatus) {
             case GameStatus.Start: return <StartScreen onStart={handleStartPreset} onCustomGame={handleOpenSettings} onHelp={handleOpenHelp} onLeaderboard={handleOpenLeaderboard} />;
             case GameStatus.Settings: return <SettingsScreen initialSettings={gameSettings} onStartGame={handleStartCustomGame} onBack={returnToStart} />;
@@ -676,11 +752,11 @@ const App: React.FC = () => {
             case GameStatus.Paused:
                 return (
                     <GameScreen
-                        words={words} typedInput={typedInput} onInputChange={handleInputChange} gameContainerRef={gameContainerRef}
-                        showLevelUp={showLevelUp} inputStatus={inputStatus} floatingScores={floatingScores}
-                        isTimeSlowed={isTimeSlowed} isPaused={gameStatus === GameStatus.Paused || isLosingLife || levelPhase === LevelPhase.WaveWarning || levelPhase === LevelPhase.LevelTransition}
+                        words={words} typedInput={typedInput} gameContainerRef={gameContainerRef}
+                        showLevelUp={showLevelUp} floatingScores={floatingScores}
+                        isTimeSlowed={isTimeSlowed}
                         lastCompletionTime={lastCompletionTime} levelPhase={levelPhase} bossState={bossState} isBossHit={isBossHit} showLevelClear={showLevelClear}
-                        isScoreBoosted={isScoreBoosted}
+                        isScoreBoosted={isScoreBoosted} isFrenzyActive={isFrenzyActive}
                     />
                 );
             case GameStatus.GameOver: return <GameOverScreen score={score} stats={gameStats} difficulty={activeDifficulty} onSubmitScore={handleSubmitScore} onRestart={handleStartPreset} onViewLeaderboard={handleOpenLeaderboard} onMainMenu={returnToStart} />;
@@ -694,40 +770,67 @@ const App: React.FC = () => {
         Hard: 'bg-gray-950',
     }[activeDifficulty] || 'bg-slate-900';
 
+    const isGameActive = gameStatus === GameStatus.Playing || gameStatus === GameStatus.Paused;
+
+    const statusClass = {
+        idle: 'border-cyan-400/50 focus:ring-4 focus:ring-cyan-500/50 focus:border-cyan-300',
+        correct: 'border-green-400 ring-4 ring-green-500/50',
+        incorrect: `border-red-500 ring-4 ring-red-500/50 ${inputStatus === 'incorrect' ? 'animate-glitch' : ''}`
+    }[inputStatus];
+
 
     return (
         <div className={`relative flex flex-col items-center justify-center min-h-screen font-mono p-4 overflow-hidden transition-colors duration-1000 ${backgroundClass}`}>
             <AudioManager gameStatus={gameStatus} levelPhase={levelPhase} />
             <BackgroundAnimation isTimeSlowed={isTimeSlowed} difficulty={activeDifficulty} />
-            <div className="relative z-10 flex flex-col items-center w-full">
-                <h1 className="text-5xl font-bold text-cyan-400 mb-2 tracking-widest" style={{ textShadow: '0 0 10px #0ff' }}>TYPING THUNDER</h1>
-                <div className="w-full max-w-6xl mx-auto flex justify-center items-start gap-8">
-                    <div className="w-64 flex-shrink-0 flex justify-center pt-8">
-                        {(gameStatus === GameStatus.Playing || gameStatus === GameStatus.Paused) && <ComboIndicator combo={combo} />}
-                    </div>
-                    <div className="w-full max-w-4xl">
-                        {(gameStatus === GameStatus.Playing || gameStatus === GameStatus.Paused) && (
-                            <div className="p-4 bg-slate-900/50 backdrop-blur-sm flex justify-between items-center z-10 border-b border-x border-t border-cyan-400/30 rounded-t-lg">
-                                <div className="flex items-center space-x-4">
-                                    <h2 className="text-xl font-bold">Score: <span key={score} className="text-cyan-400 w-24 inline-block animate-score-pop">{score}</span></h2>
-                                    <h2 className="text-xl font-bold">Level: <span className="text-green-400">{level}</span></h2>
+            
+            <div className="w-full max-w-[90rem] mx-auto flex justify-center items-start gap-8 z-10">
+                <div className="w-64 flex-shrink-0 flex justify-center pt-8">
+                    {isGameActive && <ComboIndicator combo={combo} />}
+                </div>
+
+                <main className="w-full max-w-4xl flex flex-col items-center">
+                     {isGameActive && (
+                        <header className="w-full p-4 glass-panel flex justify-between items-center z-20 mb-[-1rem]">
+                            <div className="flex items-center space-x-8">
+                                <div>
+                                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Score</h2>
+                                    <p key={score} className="text-cyan-300 w-32 inline-block animate-score-pop text-4xl font-bold" style={{textShadow: '0 0 8px #0ff'}}>{score}</p>
                                 </div>
-                                <div className="relative flex items-center space-x-2">
-                                    {shieldActive && <ShieldIcon />}
-                                    {Array.from({ length: lives }).map((_, i) => (<HeartIcon key={i} />))}
+                                <div>
+                                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Level</h2>
+                                    <p className="text-green-300 text-4xl font-bold" style={{textShadow: '0 0 8px #4ade80'}}>{level}</p>
                                 </div>
                             </div>
-                        )}
-                        <div className={`w-full max-w-4xl h-[70vh] bg-slate-800/50 border-2 border-cyan-400/50 rounded-lg shadow-2xl shadow-cyan-500/10 relative overflow-hidden ${(gameStatus === GameStatus.Playing || gameStatus === GameStatus.Paused) ? 'rounded-t-none border-t-0' : ''}`}>
-                            {renderContent()}
-                            {(gameStatus === GameStatus.Playing || isWiping) && isWiping && <WipeAnimation />}
-                            {gameStatus === GameStatus.Paused && <PauseScreen onResume={handleResume} onQuit={returnToStart} />}
-                            {isLosingLife && <LifeLostOverlay />}
-                        </div>
+                            <div className="relative glass-panel px-3 py-1.5 flex items-center space-x-2">
+                                {shieldActive && <ShieldIcon />}
+                                {Array.from({ length: lives }).map((_, i) => (<HeartIcon key={i} />))}
+                            </div>
+                        </header>
+                    )}
+
+                    <div className={`w-full h-[75vh] bg-slate-800/20 shadow-2xl shadow-cyan-500/10 relative overflow-hidden ${isGameActive ? 'glass-panel' : ''}`}>
+                        {renderScreenContent()}
+                        {isWiping && <WipeAnimation />}
+                        {gameStatus === GameStatus.Paused && <PauseScreen onResume={handleResume} onQuit={returnToStart} />}
+                        {isLosingLife && <LifeLostOverlay />}
                     </div>
-                    <div className="w-64 flex-shrink-0 pt-8">
-                        {(gameStatus === GameStatus.Playing || gameStatus === GameStatus.Paused) && <PowerUpBar progress={powerUpProgress} ready={powerUpsReady} />}
-                    </div>
+
+                    {isGameActive && (
+                        <footer className="w-full mt-4">
+                            <input
+                                ref={inputRef} type="text" value={typedInput} onChange={(e) => handleInputChange(e.target.value)}
+                                className={`w-full p-4 text-2xl text-center bg-slate-900/80 border-2 rounded-lg outline-none transition-all duration-100 text-white placeholder-slate-500 ${statusClass} disabled:bg-slate-700/50`}
+                                placeholder={levelPhase === LevelPhase.Boss ? "TYPE THE BOSS WORD!" : "Type words here..."}
+                                autoCapitalize="none" autoComplete="off" autoCorrect="off" spellCheck="false"
+                                disabled={gameStatus === GameStatus.Paused || isLosingLife || levelPhase === LevelPhase.WaveWarning || levelPhase === LevelPhase.LevelTransition}
+                            />
+                        </footer>
+                    )}
+                </main>
+
+                <div className="w-64 flex-shrink-0 pt-8">
+                    {isGameActive && <PowerUpBar progress={powerUpProgress} ready={powerUpsReady} />}
                 </div>
             </div>
         </div>

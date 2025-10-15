@@ -13,6 +13,7 @@ const FallingWord: React.FC<FallingWordProps> = ({ word, typedInput }) => {
     const isDestroyed = word.status === 'destroyed';
     const isPowerUp = !!word.powerUp;
     const isWaveWord = !!word.isWaveWord;
+    const isTransformed = !!word.isTransformed;
 
     const typedPart = isTyping ? word.text.substring(0, typedInput.length) : '';
     const untypedPart = isTyping ? word.text.substring(typedInput.length) : word.text;
@@ -22,7 +23,10 @@ const FallingWord: React.FC<FallingWordProps> = ({ word, typedInput }) => {
         left: `${word.x}px`,
         top: 0,
         transform: `translateY(${word.y}px)`,
-        textShadow: isTyping ? '0 0 8px #0ff' : (isPowerUp ? '0 0 8px #fff' : isWaveWord ? '0 0 8px #ef4444' : '0 0 5px #000'),
+        textShadow: isTyping ? '0 0 8px #0ff' : 
+                     isPowerUp ? '0 0 8px #fff' : 
+                     isWaveWord ? '0 0 8px #ef4444' : 
+                     isTransformed ? '0 0 15px #fff, 0 0 25px #fff' : '0 0 5px #000',
         opacity: isDestroyed ? 0 : 1,
         transition: 'opacity 0.1s linear',
     };
@@ -44,6 +48,7 @@ const FallingWord: React.FC<FallingWordProps> = ({ word, typedInput }) => {
                 className={`select-none text-2xl font-semibold transition-colors duration-150 ${
                     isPowerUp ? 'rainbow-text font-extrabold text-3xl' :
                     isWaveWord ? 'text-red-400' :
+                    isTransformed ? 'text-white animate-pulse' :
                     isTyping ? 'text-cyan-300' : 'text-slate-300'
                 }`}
             >

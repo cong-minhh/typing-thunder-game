@@ -20,10 +20,10 @@ const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBack, newScoreI
     const renderTab = (difficulty: Difficulty) => (
         <button
             onClick={() => setActiveTab(difficulty)}
-            className={`px-6 py-2 text-xl font-bold rounded-t-lg transition-colors duration-300 ${
+            className={`px-6 py-2 text-xl font-bold rounded-t-lg transition-colors duration-300 outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 ${
                 activeTab === difficulty
                     ? 'bg-slate-700/50 border-b-2 border-cyan-400 text-cyan-300'
-                    : 'bg-slate-800/30 text-slate-400 hover:bg-slate-700/40'
+                    : 'bg-slate-800/30 text-slate-400 hover:bg-slate-700/40 hover:text-white'
             }`}
         >
             {difficulty}
@@ -32,7 +32,7 @@ const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBack, newScoreI
 
     const renderBoard = (board: LeaderboardEntry[]) => {
         if (board.length === 0) {
-            return <p className="text-center text-slate-400 py-10">No scores yet. Be the first!</p>;
+            return <p className="text-center text-slate-400 py-10 text-xl">No scores yet. Be the first!</p>;
         }
         return (
             <table className="w-full text-left">
@@ -51,8 +51,8 @@ const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBack, newScoreI
                     {board.map((entry, index) => (
                         <tr
                             key={entry.id}
-                            className={`text-lg transition-colors duration-500 ${
-                                entry.id === newScoreId ? 'bg-cyan-500/20 animate-pulse' : 'hover:bg-slate-700/30'
+                            className={`text-lg transition-colors duration-300 ${
+                                entry.id === newScoreId ? 'bg-cyan-500/20 animate-pulse' : 'hover:bg-slate-700/50'
                             }`}
                             style={{ animationIterationCount: 3 }}
                         >
@@ -71,9 +71,9 @@ const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBack, newScoreI
     };
 
     return (
-        <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md flex flex-col items-center justify-center z-30 p-4 sm:p-8">
-            <div className="w-full max-w-4xl bg-slate-800/60 rounded-lg border border-cyan-500/30 max-h-[90vh] flex flex-col">
-                <h2 className="text-5xl font-extrabold my-6 text-center text-cyan-300">Leaderboard</h2>
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 sm:p-8">
+            <div className="w-full max-w-4xl glass-panel max-h-[90vh] flex flex-col">
+                <h2 className="text-5xl font-extrabold my-6 text-center text-cyan-300" style={{textShadow: '0 0 10px #0dd'}}>Leaderboard</h2>
                 <div className="px-6 border-b border-slate-700">
                     <div className="flex gap-2">
                         {renderTab('Easy')}
@@ -89,7 +89,7 @@ const LeaderboardScreen: React.FC<LeaderboardScreenProps> = ({ onBack, newScoreI
             <div className="mt-8">
                 <button
                     onClick={onBack}
-                    className="px-10 py-4 bg-cyan-500 text-slate-900 font-bold text-2xl rounded-lg shadow-lg hover:bg-cyan-400 hover:scale-105 transition-transform"
+                    className="btn btn-cyan"
                 >
                     Back to Menu
                 </button>

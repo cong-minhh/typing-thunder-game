@@ -8,12 +8,16 @@ interface PowerUpBarProps {
         clearWords: number;
         shield: number;
         scoreMultiplier: number;
+        unify: number;
+        frenzy: number;
     };
     ready: {
         slowTime: boolean;
         clearWords: boolean;
         shield: boolean;
         scoreMultiplier: boolean;
+        unify: boolean;
+        frenzy: boolean;
     };
 }
 
@@ -32,14 +36,14 @@ const PowerUpItem: React.FC<{
             <div className="flex justify-between items-baseline mb-1 text-sm font-bold text-slate-300">
                 <span className="flex items-center">
                     {label}
-                    <span className="ml-2 text-xs bg-slate-700 text-cyan-300 border border-cyan-500 rounded-md px-1.5 py-0.5">{hotkey}</span>
+                    <span className="ml-2 text-xs bg-slate-900 text-cyan-300 border-b-2 border-slate-600 rounded-md px-1.5 py-0.5">{hotkey}</span>
                 </span>
-                <span className={`${isReady ? 'text-yellow-300' : ''}`}>{isReady ? 'READY!' : `${Math.floor(percentage)}%`}</span>
+                <span className={`font-extrabold ${isReady ? 'text-yellow-300 text-base' : ''}`}>{isReady ? 'READY!' : `${Math.floor(percentage)}%`}</span>
             </div>
-            <div className="w-full bg-slate-700 rounded-full h-4 border border-slate-600 overflow-hidden">
+            <div className="w-full bg-slate-900/70 rounded-full h-4 border border-slate-600 overflow-hidden">
                 <div
                     className={`${color} h-full rounded-full transition-all duration-300 ease-out`}
-                    style={{ width: `${percentage}%` }}
+                    style={{ width: `${percentage}%`, boxShadow: `0 0 8px ${isReady ? '#0ff' : 'transparent'}` }}
                 ></div>
             </div>
         </div>
@@ -49,7 +53,7 @@ const PowerUpItem: React.FC<{
 
 const PowerUpBar: React.FC<PowerUpBarProps> = ({ progress, ready }) => {
     return (
-        <div className="w-full bg-slate-900/50 backdrop-blur-sm p-4 rounded-lg border border-cyan-400/30">
+        <div className="w-full glass-panel p-4">
             <h3 className="text-xl font-bold text-cyan-400 mb-4 text-center tracking-wider" style={{textShadow: '0 0 5px #0ff'}}>POWER-UPS</h3>
             <PowerUpItem
                 label="Slow Time"
@@ -82,6 +86,22 @@ const PowerUpBar: React.FC<PowerUpBarProps> = ({ progress, ready }) => {
                 color="bg-yellow-500"
                 isReady={ready.scoreMultiplier}
                 hotkey="4"
+            />
+             <PowerUpItem
+                label="Unify"
+                progress={progress.unify}
+                threshold={POWERUP_THRESHOLDS.unify}
+                color="bg-slate-400"
+                isReady={ready.unify}
+                hotkey="5"
+            />
+             <PowerUpItem
+                label="Frenzy"
+                progress={progress.frenzy}
+                threshold={POWERUP_THRESHOLDS.frenzy}
+                color="bg-orange-500"
+                isReady={ready.frenzy}
+                hotkey="6"
             />
         </div>
     );

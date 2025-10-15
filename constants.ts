@@ -36,12 +36,15 @@ export const POWERUP_THRESHOLDS = {
     clearWords: 8,
     shield: 7,
     scoreMultiplier: 10,
+    unify: 12,
+    frenzy: 15,
 };
 
 export const POWERUP_DURATIONS = {
     // Fix: Increased duration of slow time for a more impactful power-up.
     slowTime: 5000, // 5 seconds
     scoreMultiplier: 8000, // 8 seconds
+    frenzy: 6000, // 6 seconds
 };
 
 // Fix: Replaced outdated timing constants with the ones used by the application logic (e.g., TIMING_WINDOW_MS).
@@ -60,9 +63,9 @@ export const WORDS_PER_LEVEL_UNTIL_WAVE = 15;
 export const WAVE_WARNING_DURATION_MS = 2000;
 
 export const WAVE_ACCELERATE_DURATION_MS = 5000; // 5 seconds of acceleration
-export const WAVE_ACCELERATE_SPAWN_RATE_MS = 1000; // Slower spawn rate
-export const WAVE_ACCELERATE_START_SPEED_MULTIPLIER = 1.2;
-export const WAVE_ACCELERATE_END_SPEED_MULTIPLIER = 2.5;
+export const WAVE_ACCELERATE_SPAWN_RATE_MS = 1300; // Slower spawn rate
+export const WAVE_ACCELERATE_START_SPEED_MULTIPLIER = 0.8;
+export const WAVE_ACCELERATE_END_SPEED_MULTIPLIER = 1.8;
 
 export const WAVE_DELUGE_SPAWN_RATE_MS = 250; // Very fast spawning
 export const WAVE_DELUGE_SPEED_MULTIPLIER = 0.6; // Slower words
@@ -78,10 +81,10 @@ export const BOSS_SLOW_SPAWN_RATE_MS = 3000;
 // Leaderboard and Grading
 export const LEADERBOARD_MAX_SIZE = 10;
 export const GRADE_THRESHOLDS = {
-    S: 400, // A high bar for exceptional play
-    A: 300,
-    B: 200,
-    C: 120,
-    D: 50,
+    S: 900,
+    A: 600,
+    B: 400,
+    C: 250,
+    D: 100,
     F: 0,
 };

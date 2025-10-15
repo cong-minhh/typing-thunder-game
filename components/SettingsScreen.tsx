@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { GameSettings, Difficulty } from '../types';
 import { DIFFICULTY_PRESETS, CUSTOM_SETTINGS_RANGES } from '../constants';
@@ -27,7 +26,6 @@ const SettingSlider: React.FC<{
             step={step}
             value={value}
             onChange={(e) => onChange(parseFloat(e.target.value))}
-            className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
         />
     </div>
 );
@@ -41,18 +39,17 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ initialSettings, onStar
     };
 
     return (
-        <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md flex flex-col items-center justify-center z-30 p-8">
-            <h2 className="text-5xl font-extrabold mb-6 text-cyan-300">Custom Game</h2>
-
-            <div className="w-full max-w-lg bg-slate-800/50 p-6 rounded-lg border border-cyan-500/30">
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-8">
+            <div className="glass-panel w-full max-w-lg p-8">
+                <h2 className="text-5xl font-extrabold mb-6 text-cyan-300 text-center">Custom Game</h2>
                 <p className="text-center text-slate-400 mb-4">Load a preset or create your own challenge.</p>
                 <div className="flex justify-center gap-4 mb-6">
-                    <button onClick={() => handlePreset('Easy')} className="px-4 py-2 bg-green-500 text-slate-900 font-bold rounded hover:bg-green-400 transition-colors">Easy</button>
-                    <button onClick={() => handlePreset('Medium')} className="px-4 py-2 bg-yellow-500 text-slate-900 font-bold rounded hover:bg-yellow-400 transition-colors">Medium</button>
-                    <button onClick={() => handlePreset('Hard')} className="px-4 py-2 bg-red-500 text-slate-900 font-bold rounded hover:bg-red-400 transition-colors">Hard</button>
+                    <button onClick={() => handlePreset('Easy')} className="btn btn-green flex-1">Easy</button>
+                    <button onClick={() => handlePreset('Medium')} className="btn btn-yellow flex-1">Medium</button>
+                    <button onClick={() => handlePreset('Hard')} className="btn btn-red flex-1">Hard</button>
                 </div>
 
-                <hr className="border-slate-600 my-4" />
+                <hr className="border-slate-600/50 my-4" />
 
                 <SettingSlider
                     label="Starting Lives"
@@ -80,21 +77,21 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ initialSettings, onStar
                     onChange={(val) => setSettings(s => ({ ...s, spawnRateStart: val }))}
                     displayValue={`${settings.spawnRateStart} ms`}
                 />
-            </div>
-
-            <div className="flex gap-6 mt-8">
-                <button
-                    onClick={onBack}
-                    className="px-8 py-4 bg-slate-600 text-white font-bold text-xl rounded-lg shadow-lg hover:bg-slate-500 hover:scale-105 transition-transform duration-300"
-                >
-                    Back
-                </button>
-                <button
-                    onClick={() => onStartGame(settings)}
-                    className="px-8 py-4 bg-cyan-500 text-slate-900 font-bold text-xl rounded-lg shadow-lg hover:bg-cyan-400 hover:scale-105 transition-transform duration-300"
-                >
-                    Start Game
-                </button>
+                
+                <div className="flex justify-center gap-6 mt-8">
+                    <button
+                        onClick={onBack}
+                        className="btn btn-slate"
+                    >
+                        Back
+                    </button>
+                    <button
+                        onClick={() => onStartGame(settings)}
+                        className="btn btn-cyan"
+                    >
+                        Start Game
+                    </button>
+                </div>
             </div>
         </div>
     );

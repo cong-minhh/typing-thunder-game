@@ -13,27 +13,29 @@ interface GameOverScreenProps {
 }
 
 const StatDisplay: React.FC<{ label: string; value: string | number; className?: string }> = ({ label, value, className = '' }) => (
-    <div className="text-center bg-slate-800/50 p-3 rounded-lg">
+    <div className="text-center bg-slate-900/50 p-3 rounded-lg border border-slate-700">
         <div className="text-sm text-slate-400 uppercase tracking-wider">{label}</div>
         <div className={`text-3xl font-bold ${className}`}>{value}</div>
     </div>
 );
 
-const gradeColorClass = (grade: string) => {
+const getGradeStyles = (grade: string): { color: string, shadow: string } => {
     switch (grade) {
-        case 'S': return 'text-yellow-300';
-        case 'A': return 'text-green-400';
-        case 'B': return 'text-sky-400';
-        case 'C': return 'text-orange-400';
-        case 'D': return 'text-red-400';
-        default: return 'text-slate-400';
+        case 'S': return { color: 'text-yellow-300', shadow: '0 0 25px #fde047' };
+        case 'A': return { color: 'text-green-400', shadow: '0 0 20px #4ade80' };
+        case 'B': return { color: 'text-sky-400', shadow: '0 0 15px #38bdf8' };
+        case 'C': return { color: 'text-orange-400', shadow: '0 0 10px #fb923c' };
+        case 'D': return { color: 'text-red-400', shadow: '0 0 8px #f87171' };
+        default: return { color: 'text-slate-400', shadow: 'none' };
     }
 };
+
 
 const GameOverScreen: React.FC<GameOverScreenProps> = ({ score, stats, difficulty, onSubmitScore, onRestart, onViewLeaderboard, onMainMenu }) => {
     const [name, setName] = useState('');
     const [isHigh, setIsHigh] = useState(false);
     const [submitted, setSubmitted] = useState(false);
+    const gradeStyles = getGradeStyles(stats.grade);
 
     useEffect(() => {
         setIsHigh(leaderboardService.isHighScore(score, difficulty));
@@ -47,18 +49,18 @@ const GameOverScreen: React.FC<GameOverScreenProps> = ({ score, stats, difficult
     };
 
     return (
-        <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md flex flex-col items-center justify-center z-30 p-4 sm:p-8 text-center">
-            <h2 className="text-6xl font-extrabold mb-4 text-red-500">Game Over</h2>
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 sm:p-8 text-center">
+            <h2 className="text-6xl font-extrabold mb-4 text-red-500" style={{textShadow: '0 0 10px #ef4444'}}>Game Over</h2>
             
-            <div className="w-full max-w-2xl bg-slate-900/30 p-6 rounded-xl border border-cyan-500/20 shadow-lg">
+            <div className="w-full max-w-2xl glass-panel p-6">
                 <div className="flex justify-around items-center mb-6">
                     <div>
                         <p className="text-2xl text-slate-300 mb-1">Final Score</p>
-                        <p className="text-7xl font-bold text-cyan-400">{score}</p>
+                        <p className="text-7xl font-bold text-cyan-400" style={{textShadow: '0 0 10px #0dd'}}>{score.toLocaleString()}</p>
                     </div>
                     <div>
                         <p className="text-2xl text-slate-300 mb-1">Grade</p>
-                        <p className={`text-8xl font-black ${gradeColorClass(stats.grade)}`} style={{ textShadow: '0 0 15px currentColor' }}>{stats.grade}</p>
+                        <p className={`text-8xl font-black ${gradeStyles.color}`} style={{ textShadow: gradeStyles.shadow }}>{stats.grade}</p>
                     </div>
                 </div>
 
@@ -81,7 +83,7 @@ const GameOverScreen: React.FC<GameOverScreenProps> = ({ score, stats, difficult
                                 className="px-4 py-2 text-xl text-center bg-slate-800 border-2 border-slate-600 rounded-lg outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-400 text-white"
                                 placeholder="Your Name"
                             />
-                            <button type="submit" className="px-6 py-2 bg-green-500 text-slate-900 font-bold text-xl rounded-lg hover:bg-green-400 transition-colors">
+                            <button type="submit" className="btn btn-green">
                                 Submit
                             </button>
                         </div>
@@ -90,13 +92,13 @@ const GameOverScreen: React.FC<GameOverScreenProps> = ({ score, stats, difficult
             </div>
 
             <div className="flex flex-wrap justify-center gap-4 mt-8">
-                <button onClick={() => onRestart(difficulty)} className="px-8 py-4 bg-cyan-500 text-slate-900 font-bold text-xl rounded-lg shadow-lg hover:bg-cyan-400 hover:scale-105 transition-transform">
+                <button onClick={() => onRestart(difficulty)} className="btn btn-cyan">
                     Play Again
                 </button>
-                <button onClick={onViewLeaderboard} className="px-8 py-4 bg-violet-500 text-slate-900 font-bold text-xl rounded-lg shadow-lg hover:bg-violet-400 hover:scale-105 transition-transform">
+                <button onClick={onViewLeaderboard} className="btn btn-violet">
                     Leaderboard
                 </button>
-                 <button onClick={onMainMenu} className="px-8 py-4 bg-slate-600 text-white font-bold text-xl rounded-lg shadow-lg hover:bg-slate-500 hover:scale-105 transition-transform">
+                 <button onClick={onMainMenu} className="btn btn-slate">
                     Main Menu
                 </button>
             </div>
