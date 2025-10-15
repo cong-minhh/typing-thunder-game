@@ -52,7 +52,7 @@ const FallingWord: React.FC<FallingWordProps> = ({ word, typedInput }) => {
                     isPowerUp ? 'rainbow-text font-extrabold text-3xl' :
                     isWaveWord ? 'text-red-400 text-2xl' :
                     isTransformed ? 'text-white animate-pulse text-2xl' :
-                    isProjectile ? 'text-fuchsia-400 text-4xl font-black animate-pulse' :
+                    isProjectile ? 'text-fuchsia-400 text-4xl font-black animate-pulse animate-spin' :
                     isTyping ? 'text-cyan-300 text-2xl' : 'text-slate-300 text-2xl'
                 }`}
             >

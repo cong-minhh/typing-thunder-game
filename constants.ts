@@ -1,5 +1,5 @@
 // Fix: Import Difficulty from the now-correct types.ts file.
-import { Difficulty, GameSettings } from './types';
+import { Difficulty, GameSettings, Grade } from './types';
 
 export const LEVEL_UP_SCORE = 100;
 
@@ -53,6 +53,7 @@ export const POWERUP_DURATIONS = {
 // Fix: Replaced outdated timing constants with the ones used by the application logic (e.g., TIMING_WINDOW_MS).
 export const TIMING_WINDOW_MS = 3000;
 export const MAX_TIMING_BONUS_MULTIPLIER = 2.0; // The total score can be multiplied by up to this amount
+export const TIMING_BONUS_MULTIPLIER_INCREASE_PER_LEVEL = 0.05; // Slight increase per level
 
 export const TIMING_TIERS = [
     { threshold: 750, label: 'UNREAL', colorClass: 'text-fuchsia-400' },
@@ -84,12 +85,12 @@ export const PROJECTILE_LETTER_SPEED = 4;
 
 
 // Leaderboard and Grading
-export const GRADE_THRESHOLDS = {
-    S: 900,
-    A: 600,
-    B: 400,
-    C: 250,
-    D: 100,
+export const GRADE_PROGRESS_THRESHOLDS: Record<Grade, number> = {
+    S: 50000,
+    A: 25000,
+    B: 10000,
+    C: 4000,
+    D: 1000,
     F: 0,
 };
 

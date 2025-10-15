@@ -524,6 +524,15 @@
     animation: frenzy-embers 3s linear infinite;
   }
 
+  /* New Projectile Spin Animation */
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  .animate-spin {
+    animation: spin 1.5s linear infinite;
+  }
+
   /* For ActivePowerUpsDisplay */
   .powerup-timer-bar {
       position: absolute;
@@ -539,6 +548,26 @@
   }
   .animate-powerup-enter {
       animation: powerup-enter 0.3s ease-out forwards;
+  }
+
+  /* Grade Meter Styles */
+  .grade-meter-bar-inner {
+      transition: width 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+  }
+  @keyframes grade-up-pop {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.5) rotate(-5deg); }
+      100% { transform: scale(1) rotate(0deg); }
+  }
+  .animate-grade-up {
+      animation: grade-up-pop 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  }
+  @keyframes bar-flash {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.7); }
+  }
+  .animate-bar-flash {
+      animation: bar-flash 0.5s ease-out;
   }
 
 </style>

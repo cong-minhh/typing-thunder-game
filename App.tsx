@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { GameStatus, Word, Difficulty, FloatingScore, PowerUpType, ActivePowerUp, LevelPhase, BossState, GameSettings, GameStats, LeaderboardEntry, LightningStrikeInfo } from './types';
+import { GameStatus, Word, Difficulty, FloatingScore, PowerUpType, ActivePowerUp, LevelPhase, BossState, GameSettings, GameStats, LeaderboardEntry, LightningStrikeInfo, Grade } from './types';
 import GameScreen from './components/GameScreen';
 import StartScreen from './components/StartScreen';
 import GameOverScreen from './components/GameOverScreen';
 import ComboIndicator from './components/ComboIndicator';
-import { LEVEL_UP_SCORE, WORD_FALL_SPEED_INCREASE, WORD_SPAWN_RATE_DECREASE, DIFFICULTY_PRESETS, POWERUP_THRESHOLDS, POWERUP_DURATIONS, TIMING_WINDOW_MS, MAX_TIMING_BONUS_MULTIPLIER, TIMING_TIERS, WORDS_PER_LEVEL_UNTIL_WAVE, WAVE_WARNING_DURATION_MS, BOSS_HEALTH_BASE, BOSS_HEALTH_PER_LEVEL, BOSS_TIMER_DURATION_MS, BOSS_WORDS_BASE, BOSS_WORDS_PER_LEVEL, BOSS_SLOW_SPAWN_RATE_MS, WAVE_ACCELERATE_DURATION_MS, WAVE_ACCELERATE_END_SPEED_MULTIPLIER, WAVE_ACCELERATE_SPAWN_RATE_MS, WAVE_ACCELERATE_START_SPEED_MULTIPLIER, WAVE_DELUGE_WORD_COUNT, WAVE_DELUGE_SPAWN_RATE_MS, WAVE_DELUGE_SPEED_MULTIPLIER, GRADE_THRESHOLDS, POWERUP_WORD_VX, POWERUP_WORD_VY, POWERUP_WORD_MAX_BOUNCES, PROJECTILE_LETTER_SPEED } from './constants';
+import { LEVEL_UP_SCORE, WORD_FALL_SPEED_INCREASE, WORD_SPAWN_RATE_DECREASE, DIFFICULTY_PRESETS, POWERUP_THRESHOLDS, POWERUP_DURATIONS, TIMING_WINDOW_MS, MAX_TIMING_BONUS_MULTIPLIER, TIMING_TIERS, WORDS_PER_LEVEL_UNTIL_WAVE, WAVE_WARNING_DURATION_MS, BOSS_HEALTH_BASE, BOSS_HEALTH_PER_LEVEL, BOSS_TIMER_DURATION_MS, BOSS_WORDS_BASE, BOSS_WORDS_PER_LEVEL, BOSS_SLOW_SPAWN_RATE_MS, WAVE_ACCELERATE_DURATION_MS, WAVE_ACCELERATE_END_SPEED_MULTIPLIER, WAVE_ACCELERATE_SPAWN_RATE_MS, WAVE_ACCELERATE_START_SPEED_MULTIPLIER, WAVE_DELUGE_WORD_COUNT, WAVE_DELUGE_SPAWN_RATE_MS, WAVE_DELUGE_SPEED_MULTIPLIER, GRADE_PROGRESS_THRESHOLDS, POWERUP_WORD_VX, POWERUP_WORD_VY, POWERUP_WORD_MAX_BOUNCES, PROJECTILE_LETTER_SPEED, TIMING_BONUS_MULTIPLIER_INCREASE_PER_LEVEL } from './constants';
 import HeartIcon from './components/UI/HeartIcon';
 import BackgroundAnimation from './components/BackgroundAnimation';
 import PowerUpBar from './components/PowerUpBar';
@@ -21,6 +21,7 @@ import { leaderboardService } from './services/leaderboardService';
 import LeaderboardScreen from './components/LeaderboardScreen';
 import ShieldDisplay from './components/UI/ShieldDisplay';
 import ActivePowerUpsDisplay from './components/ActivePowerUpsDisplay';
+import GradeMeter from './components/GradeMeter';
 
 const POWERUP_SPAWN_CHANCE = 0.05; // 5% chance
 const FRENZY_RADIUS = 150; // pixels
@@ -73,6 +74,11 @@ const App: React.FC = () => {
     const [isBossHit, setIsBossHit] = useState(false);
     const [showLevelClear, setShowLevelClear] = useState(false);
     const [waveState, setWaveState] = useState<{startTime: number, wordsSpawned: number}>({startTime: 0, wordsSpawned: 0});
+
+    // New state for Grade Meter
+    const [gradeProgress, setGradeProgress] = useState(0);
+    const [currentGrade, setCurrentGrade] = useState<Grade>('F');
+    const [gradeMultiplier, setGradeMultiplier] = useState(1);
 
     const animationFrameId = useRef<number | null>(null);
     const lastSpawnTime = useRef<number>(Date.now());
@@ -132,6 +138,9 @@ const App: React.FC = () => {
         setShowLevelClear(false);
         setWaveState({ startTime: 0, wordsSpawned: 0 });
         setGameStats({ ...initialGameStats, startTime: Date.now() });
+        setGradeProgress(0);
+        setCurrentGrade('F');
+        setGradeMultiplier(1);
         if (bossTimerInterval.current) clearInterval(bossTimerInterval.current);
         lastSpawnTime.current = Date.now();
     }, [resetCombo]);
@@ -428,6 +437,7 @@ const App: React.FC = () => {
                 setWordsClearedThisLevel(0);
                 setBossState(null);
                 setLevelPhase(LevelPhase.Normal);
+                setGradeMultiplier(prev => prev * 2); // Double the grade multiplier
             }, 2000);
         }
 
@@ -491,19 +501,21 @@ const App: React.FC = () => {
         
         const wpm = durationSeconds > 0 ? Math.round((stats.totalCharsCompleted / 5) / (durationSeconds / 60)) : 0;
         const accuracy = stats.totalCharsCompleted + stats.totalMistypes > 0 ? Math.round((stats.totalCharsCompleted / (stats.totalCharsCompleted + stats.totalMistypes)) * 100) : 100;
-        
-        // Refined weighted score for grading
-        const baseScore = (wpm * 1.5) + (accuracy * 2.5) + (stats.longestCombo * 5) + (level * 20) + (stats.totalWordsCleared * 0.5);
-        
-        let difficultyMultiplier = 1.0;
-        if (activeDifficulty === 'Easy') difficultyMultiplier = 0.8;
-        if (activeDifficulty === 'Hard') difficultyMultiplier = 1.25;
 
-        const finalGradeScore = baseScore * difficultyMultiplier;
-        const grade = Object.entries(GRADE_THRESHOLDS).find(([, threshold]) => finalGradeScore >= threshold)?.[0] || 'F';
+        setGameStats(prev => ({ ...prev, wpm, accuracy, grade: currentGrade }));
+    }, [gameStats, currentGrade]);
 
-        setGameStats(prev => ({ ...prev, wpm, accuracy, grade }));
-    }, [gameStats, level, activeDifficulty]);
+    // Update current grade based on progress
+    useEffect(() => {
+        const newGrade = (Object.entries(GRADE_PROGRESS_THRESHOLDS) as [Grade, number][])
+            .sort(([, a], [, b]) => b - a) // Sort descending
+            .find(([, threshold]) => gradeProgress >= threshold)?.[0] || 'F';
+        
+        if (newGrade !== currentGrade) {
+            setCurrentGrade(newGrade);
+        }
+    }, [gradeProgress, currentGrade]);
+
 
     useEffect(() => {
         if (lives <= 0 && gameStatus === GameStatus.Playing) {
@@ -527,7 +539,8 @@ const App: React.FC = () => {
             const newFloatingScores: FloatingScore[] = [];
 
             wordsToClear.forEach(word => {
-                const points = Math.round(word.text.length * 0.5); // Half points for wiped words
+                const basePoints = word.text.length * 0.5; // Half points for wiped words
+                const points = Math.round(basePoints * gradeMultiplier);
                 pointsFromWipe += points;
                 newFloatingScores.push({
                     id: Date.now() + Math.random(),
@@ -564,7 +577,7 @@ const App: React.FC = () => {
         } else if (powerUpType === 'frenzy') {
             setActivePowerUps(prev => [...prev, { type: 'frenzy', expiration: Date.now() + POWERUP_DURATIONS.frenzy }]);
         }
-    }, [words]);
+    }, [words, gradeMultiplier]);
     
     const removeLightningStrike = useCallback((id: number) => {
         setLightningStrikes(prev => prev.filter(strike => strike.id !== id));
@@ -574,19 +587,23 @@ const App: React.FC = () => {
         const now = Date.now();
         const timeSinceLast = lastCompletionTime ? now - lastCompletionTime : Infinity;
         
+        // Bonus scales with level
+        const maxTimingBonusForLevel = MAX_TIMING_BONUS_MULTIPLIER + (level - 1) * TIMING_BONUS_MULTIPLIER_INCREASE_PER_LEVEL;
+
         let timingBonusMultiplier = 1;
         let timingLabel: { text: string; colorClass: string; } | undefined;
 
         if (timeSinceLast < TIMING_WINDOW_MS) {
             const remainingTime = TIMING_WINDOW_MS - timeSinceLast;
             const bonusRatio = remainingTime / TIMING_WINDOW_MS;
-            timingBonusMultiplier = 1 + bonusRatio * (MAX_TIMING_BONUS_MULTIPLIER - 1);
+            timingBonusMultiplier = 1 + bonusRatio * (maxTimingBonusForLevel - 1);
             const tier = TIMING_TIERS.find(t => timeSinceLast <= t.threshold);
             if(tier) timingLabel = { text: tier.label, colorClass: tier.colorClass };
         }
 
         const scoreMultiplier = isScoreBoosted ? 2 : 1;
         let totalPointsGained = 0;
+        let totalStylePointsGained = 0;
         const newFloatingScores: FloatingScore[] = [];
         const idsToDestroy = new Set<number>();
         let regularWordsCleared = 0;
@@ -617,8 +634,13 @@ const App: React.FC = () => {
             regularWordsCleared++;
             charsInCompletedWords += matchedWord.text.length;
             const baseScore = matchedWord.text.length;
-            const finalPoints = Math.round(baseScore * timingBonusMultiplier * scoreMultiplier);
+            const finalPoints = Math.round(baseScore * timingBonusMultiplier * scoreMultiplier * gradeMultiplier);
             totalPointsGained += finalPoints;
+
+            // Calculate Style Points
+            const baseStylePoints = (matchedWord.text.length * 10) + (combo * 5);
+            const finalStylePoints = Math.round(baseStylePoints * timingBonusMultiplier * gradeMultiplier);
+            totalStylePointsGained += finalStylePoints;
 
             const currentWordCenter = {
                 x: matchedWord.x + (matchedWord.text.length * 15) / 2,
@@ -635,8 +657,8 @@ const App: React.FC = () => {
             setLastCompletedWordPosition(currentWordCenter);
 
             newFloatingScores.push({
-                id: Date.now() + Math.random(), base: baseScore, bonus: 0,
-                timingBonus: finalPoints - baseScore, timingLabel,
+                id: Date.now() + Math.random(), base: finalPoints, bonus: 0,
+                timingBonus: finalPoints - Math.round(baseScore * scoreMultiplier * gradeMultiplier), timingLabel,
                 timingMultiplier: timingBonusMultiplier > 1 ? timingBonusMultiplier : undefined,
                 scoreMultiplier: scoreMultiplier > 1 ? scoreMultiplier : undefined,
                 x: matchedWord.x, y: matchedWord.y,
@@ -651,9 +673,12 @@ const App: React.FC = () => {
                 idsToDestroy.add(id);
                 regularWordsCleared++;
                 charsInCompletedWords += word.text.length;
-                const baseScore = Math.round(word.text.length * 0.5); // Frenzy collateral gives half points
-                const finalPoints = Math.round(baseScore * scoreMultiplier);
+                const baseScore = word.text.length * 0.5; // Frenzy collateral gives half points
+                const finalPoints = Math.round(baseScore * scoreMultiplier * gradeMultiplier);
                 totalPointsGained += finalPoints;
+
+                // Frenzy collateral gives style points too
+                totalStylePointsGained += Math.round(baseScore * 10 * gradeMultiplier);
 
                 newFloatingScores.push({
                     id: Date.now() + Math.random(), base: finalPoints, bonus: 0,
@@ -696,6 +721,7 @@ const App: React.FC = () => {
         }
 
         setScore(prev => prev + totalPointsGained);
+        setGradeProgress(prev => prev + totalStylePointsGained);
         setCombo(prev => prev + 1);
         setLastCompletionTime(now);
 
@@ -738,8 +764,11 @@ const App: React.FC = () => {
                 };
                 setWords(prev => [...prev, newProjectile]);
 
-                const points = (currentBossWord.length || 5) * 5 * (isScoreBoosted ? 2 : 1);
+                const basePoints = (currentBossWord.length || 5) * 5;
+                const points = Math.round(basePoints * (isScoreBoosted ? 2 : 1) * gradeMultiplier);
                 setScore(s => s + points);
+                // Boss hits give style points too
+                setGradeProgress(prev => prev + Math.round(points * 10 * gradeMultiplier));
                 setCombo(prev => prev + 1);
                 setGameStats(prev => ({ 
                     ...prev, 
@@ -769,7 +798,8 @@ const App: React.FC = () => {
 
             if (wordToComplete.isProjectile) {
                 const scoreMultiplier = isScoreBoosted ? 2 : 1;
-                const points = 25 * scoreMultiplier;
+                const basePoints = 25;
+                const points = Math.round(basePoints * scoreMultiplier * gradeMultiplier);
                 setScore(s => s + points);
                 setCombo(c => c + 1);
                  setGameStats(prev => ({
@@ -778,7 +808,7 @@ const App: React.FC = () => {
                     longestCombo: Math.max(prev.longestCombo, combo + 1),
                 }));
                 setFloatingScores(prev => [...prev, {
-                    id: Date.now(), base: 25, bonus: 0,
+                    id: Date.now(), base: points, bonus: 0,
                     scoreMultiplier: scoreMultiplier > 1 ? scoreMultiplier : undefined,
                     x: wordToComplete.x, y: wordToComplete.y
                 }]);
@@ -943,6 +973,7 @@ const App: React.FC = () => {
             
             <div className="w-full max-w-[90rem] mx-auto flex justify-center items-start gap-8 z-10">
                 <div className="w-64 flex-shrink-0 flex flex-col items-center pt-8 gap-4">
+                    {isGameActive && <GradeMeter progress={gradeProgress} grade={currentGrade} multiplier={gradeMultiplier} />}
                     {isGameActive && <ComboIndicator combo={combo} />}
                     {isGameActive && <ActivePowerUpsDisplay activePowerUps={activePowerUps} />}
                 </div>

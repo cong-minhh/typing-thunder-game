@@ -1,4 +1,5 @@
 
+
 // Fix: Removed self-import of 'GameStatus' to fix declaration conflict and circular dependency.
 export enum GameStatus {
     Start,
@@ -22,6 +23,8 @@ export enum LevelPhase {
 export type Difficulty = 'Easy' | 'Medium' | 'Hard';
 
 export type PowerUpType = 'slow-time' | 'clear-words' | 'shield' | 'score-multiplier' | 'unify' | 'frenzy';
+
+export type Grade = 'S' | 'A' | 'B' | 'C' | 'D' | 'F';
 
 export interface GameSettings {
     startingLives: number;
@@ -80,14 +83,14 @@ export interface GameStats {
     // For post-game calculation
     wpm: number;
     accuracy: number;
-    grade: string;
+    grade: Grade;
 }
 
 export interface LeaderboardEntry {
     id: string;
     name: string;
     score: number;
-    grade: string;
+    grade: Grade;
     level: number;
     wpm: number;
     accuracy: number;
