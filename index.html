@@ -493,6 +493,92 @@
     animation: lightning-draw 0.1s linear forwards;
   }
 
+  /* PowerUp Activation FX */
+  @keyframes ripple-out {
+    from { transform: scale(0); opacity: 1; }
+    to { transform: scale(1.5); opacity: 0; }
+  }
+  .animate-ripple-out::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 100vmin; height: 100vmin;
+    transform-origin: center;
+    border: 5px solid #0ea5e9;
+    border-radius: 50%;
+    animation: ripple-out 0.5s ease-out forwards;
+  }
+  @keyframes gold-flash {
+    0% { background-color: rgba(250, 204, 21, 0.8); opacity: 1; }
+    100% { background-color: rgba(250, 204, 21, 0); opacity: 0; }
+  }
+  .animate-gold-flash { animation: gold-flash 0.8s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
+
+  @keyframes shield-pulse-effect {
+    0% { transform: scale(0); opacity: 0; }
+    50% { transform: scale(1); opacity: 0.5; }
+    100% { transform: scale(1); opacity: 0; }
+  }
+  .animate-shield-pulse-effect::before {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 200%; padding-bottom: 200%;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, transparent 30%, #06b6d4 50%, transparent 70%);
+    animation: shield-pulse-effect 0.6s ease-out forwards;
+  }
+  @keyframes scan-down {
+    0% { top: -10%; }
+    100% { top: 110%; }
+  }
+  .animate-scan-down::before {
+    content: '';
+    position: absolute;
+    left: 0; right: 0;
+    height: 10%;
+    background: linear-gradient(to bottom, transparent, rgba(6, 182, 212, 0.5), transparent);
+    box-shadow: 0 0 20px #06b6d4;
+    animation: scan-down 0.7s ease-in-out forwards;
+  }
+  @keyframes orange-blast {
+    from { transform: scale(0); opacity: 1; }
+    to { transform: scale(2); opacity: 0; }
+  }
+  .animate-orange-blast {
+    background: radial-gradient(circle, rgba(249, 115, 22, 0.7) 0%, transparent 70%);
+    animation: orange-blast 0.5s ease-out forwards;
+  }
+
+  /* Active PowerUps HUD */
+  .active-power-ups-display {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  .power-up-icon {
+    width: 64px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 900;
+    position: relative;
+    color: white;
+    text-shadow: 0 0 5px black;
+  }
+  .countdown-circle {
+    position: absolute;
+    inset: 0;
+    transform: rotate(-90deg);
+  }
+
+
 </style>
 </head>
 <body class="bg-slate-900 text-white">

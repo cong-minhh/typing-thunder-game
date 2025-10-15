@@ -50,6 +50,8 @@ export const POWERUP_DURATIONS = {
     frenzy: 6000, // 6 seconds
 };
 
+export const MAX_SHIELD_STACKS = 3;
+
 // Fix: Replaced outdated timing constants with the ones used by the application logic (e.g., TIMING_WINDOW_MS).
 export const TIMING_WINDOW_MS = 3000;
 export const MAX_TIMING_BONUS_MULTIPLIER = 2.0; // The total score can be multiplied by up to this amount

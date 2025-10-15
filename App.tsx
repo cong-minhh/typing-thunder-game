@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { GameStatus, Word, Difficulty, FloatingScore, PowerUpType, ActivePowerUp, LevelPhase, BossState, GameSettings, GameStats, LeaderboardEntry, LightningStrikeInfo } from './types';
 import GameScreen from './components/GameScreen';
 import StartScreen from './components/StartScreen';
 import GameOverScreen from './components/GameOverScreen';
 import ComboIndicator from './components/ComboIndicator';
-import { LEVEL_UP_SCORE, WORD_FALL_SPEED_INCREASE, WORD_SPAWN_RATE_DECREASE, DIFFICULTY_PRESETS, POWERUP_THRESHOLDS, POWERUP_DURATIONS, TIMING_WINDOW_MS, MAX_TIMING_BONUS_MULTIPLIER, TIMING_TIERS, WORDS_PER_LEVEL_UNTIL_WAVE, WAVE_WARNING_DURATION_MS, BOSS_HEALTH_BASE, BOSS_HEALTH_PER_LEVEL, BOSS_TIMER_DURATION_MS, BOSS_WORDS_BASE, BOSS_WORDS_PER_LEVEL, BOSS_SLOW_SPAWN_RATE_MS, WAVE_ACCELERATE_DURATION_MS, WAVE_ACCELERATE_END_SPEED_MULTIPLIER, WAVE_ACCELERATE_SPAWN_RATE_MS, WAVE_ACCELERATE_START_SPEED_MULTIPLIER, WAVE_DELUGE_WORD_COUNT, WAVE_DELUGE_SPAWN_RATE_MS, WAVE_DELUGE_SPEED_MULTIPLIER, GRADE_THRESHOLDS, POWERUP_WORD_VX, POWERUP_WORD_VY, POWERUP_WORD_MAX_BOUNCES, PROJECTILE_LETTER_SPEED } from './constants';
+import { LEVEL_UP_SCORE, WORD_FALL_SPEED_INCREASE, WORD_SPAWN_RATE_DECREASE, DIFFICULTY_PRESETS, POWERUP_THRESHOLDS, POWERUP_DURATIONS, TIMING_WINDOW_MS, MAX_TIMING_BONUS_MULTIPLIER, TIMING_TIERS, WORDS_PER_LEVEL_UNTIL_WAVE, WAVE_WARNING_DURATION_MS, BOSS_HEALTH_BASE, BOSS_HEALTH_PER_LEVEL, BOSS_TIMER_DURATION_MS, BOSS_WORDS_BASE, BOSS_WORDS_PER_LEVEL, BOSS_SLOW_SPAWN_RATE_MS, WAVE_ACCELERATE_DURATION_MS, WAVE_ACCELERATE_END_SPEED_MULTIPLIER, WAVE_ACCELERATE_SPAWN_RATE_MS, WAVE_ACCELERATE_START_SPEED_MULTIPLIER, WAVE_DELUGE_WORD_COUNT, WAVE_DELUGE_SPAWN_RATE_MS, WAVE_DELUGE_SPEED_MULTIPLIER, GRADE_THRESHOLDS, POWERUP_WORD_VX, POWERUP_WORD_VY, POWERUP_WORD_MAX_BOUNCES, PROJECTILE_LETTER_SPEED, MAX_SHIELD_STACKS } from './constants';
 import HeartIcon from './components/UI/HeartIcon';
 import BackgroundAnimation from './components/BackgroundAnimation';
 import PowerUpBar from './components/PowerUpBar';
@@ -17,9 +17,9 @@ import LifeLostOverlay from './components/LifeLostOverlay';
 import AudioManager from './components/AudioManager';
 import SettingsScreen from './components/SettingsScreen';
 import HelpScreen from './components/HelpScreen';
-import ShieldIcon from './components/UI/ShieldIcon';
 import { leaderboardService } from './services/leaderboardService';
 import LeaderboardScreen from './components/LeaderboardScreen';
+import ActivePowerUpsDisplay from './components/ActivePowerUpsDisplay';
 
 const POWERUP_SPAWN_CHANCE = 0.05; // 5% chance
 const FRENZY_RADIUS = 150; // pixels
@@ -59,11 +59,11 @@ const App: React.FC = () => {
     const [isLosingLife, setIsLosingLife] = useState(false);
     const [lastCompletionTime, setLastCompletionTime] = useState<number | null>(null);
     const [activeDifficulty, setActiveDifficulty] = useState<Difficulty>('Medium');
-    const [shieldActive, setShieldActive] = useState(false);
     const [gameStats, setGameStats] = useState<GameStats>(initialGameStats);
     const [lastSubmittedScoreId, setLastSubmittedScoreId] = useState<string | null>(null);
     const [lastCompletedWordPosition, setLastCompletedWordPosition] = useState<{ x: number; y: number } | null>(null);
     const [lightningStrikes, setLightningStrikes] = useState<LightningStrikeInfo[]>([]);
+    const [powerUpActivationFx, setPowerUpActivationFx] = useState<PowerUpType | null>(null);
 
     // New state for waves and bosses
     const [levelPhase, setLevelPhase] = useState<LevelPhase>(LevelPhase.Normal);
@@ -82,29 +82,19 @@ const App: React.FC = () => {
     const prevLivesRef = useRef(lives);
     const bossTimerInterval = useRef<number | null>(null);
     
+    // Create a ref to hold all state needed by the game loop.
+    // This avoids stale closures in the requestAnimationFrame callback.
+    const gameLoopState = useRef<any>({});
+    useEffect(() => {
+        gameLoopState.current = {
+            gameStatus, isLosingLife, levelPhase, gameSettings, level, waveState, activePowerUps
+        };
+    });
+
     const isTimeSlowed = activePowerUps.some(p => p.type === 'slow-time');
     const isScoreBoosted = activePowerUps.some(p => p.type === 'score-multiplier');
     const isFrenzyActive = activePowerUps.some(p => p.type === 'frenzy');
-
-    const fallSpeedMultiplier = isTimeSlowed ? 0.4 : 1;
-    let baseWordFallSpeed = gameSettings.fallSpeedStart + (level - 1) * WORD_FALL_SPEED_INCREASE;
-    let wordFallSpeed = baseWordFallSpeed;
-    let wordSpawnRate = Math.max(200, gameSettings.spawnRateStart - (level - 1) * WORD_SPAWN_RATE_DECREASE);
-
-    if (levelPhase === LevelPhase.WaveAccelerate) {
-        const elapsed = Date.now() - waveState.startTime;
-        const progress = Math.min(elapsed / WAVE_ACCELERATE_DURATION_MS, 1);
-        const speedMultiplier = WAVE_ACCELERATE_START_SPEED_MULTIPLIER + (WAVE_ACCELERATE_END_SPEED_MULTIPLIER - WAVE_ACCELERATE_START_SPEED_MULTIPLIER) * progress;
-        wordFallSpeed *= speedMultiplier;
-        wordSpawnRate = WAVE_ACCELERATE_SPAWN_RATE_MS;
-    } else if (levelPhase === LevelPhase.WaveDeluge) {
-        wordFallSpeed *= WAVE_DELUGE_SPEED_MULTIPLIER;
-        wordSpawnRate = WAVE_DELUGE_SPAWN_RATE_MS;
-    } else if (levelPhase === LevelPhase.Boss) {
-        wordSpawnRate = BOSS_SLOW_SPAWN_RATE_MS;
-    }
-
-    wordFallSpeed *= fallSpeedMultiplier;
+    const shieldStacks = activePowerUps.find(p => p.type === 'shield')?.stacks ?? 0;
 
     const resetCombo = useCallback(() => {
         setCombo(0);
@@ -123,7 +113,6 @@ const App: React.FC = () => {
         setPowerUpProgress({ slowTime: 0, clearWords: 0, shield: 0, scoreMultiplier: 0, unify: 0, frenzy: 0 });
         setPowerUpsReady({ slowTime: false, clearWords: false, shield: false, scoreMultiplier: false, unify: false, frenzy: false });
         setActivePowerUps([]);
-        setShieldActive(false);
         setIsLosingLife(false);
         setLevelPhase(LevelPhase.Normal);
         setWordsClearedThisLevel(0);
@@ -204,53 +193,83 @@ const App: React.FC = () => {
             setWords(prev => [...prev, newWord]);
             return;
         }
+
+        setWords(currentWords => {
+            if (!gameContainerRef.current) return currentWords;
+            const gameWidth = gameContainerRef.current.offsetWidth;
+            let wordText: string;
+            
+            if (isWaveWord) {
+                // Get short to medium words for waves
+                const shortWords = EASY_WORDS.filter(w => w.length >= 3 && w.length <= 6);
+                wordText = shortWords[Math.floor(Math.random() * shortWords.length)];
+            } else {
+                 wordText = gameWords[Math.floor(Math.random() * gameWords.length)];
+            }
+            
+            const charWidth = 15; // Estimated width for a text-2xl monospace char
+            const wordWidth = wordText.length * charWidth;
+            let spawnX: number;
+            let attempts = 0;
+            let positionValid = false;
+            
+            do {
+                spawnX = Math.random() * (gameWidth - wordWidth);
+                // Improved collision check: Check for horizontal overlap with other recently spawned words.
+                positionValid = !currentWords.some(word => 
+                    word.y < 50 && // Only check against words near the top
+                    spawnX < word.x + (word.text.length * charWidth) && 
+                    spawnX + wordWidth > word.x
+                );
+                attempts++;
+            } while (!positionValid && attempts < 20); // Increased attempts for deluge
     
-        const gameWidth = gameContainerRef.current.offsetWidth;
-        let wordText: string;
-        
-        if (isWaveWord) {
-            // Get short to medium words for waves
-            const shortWords = EASY_WORDS.filter(w => w.length >= 3 && w.length <= 6);
-            wordText = shortWords[Math.floor(Math.random() * shortWords.length)];
-        } else {
-             wordText = gameWords[Math.floor(Math.random() * gameWords.length)];
-        }
-        
-        const charWidth = 15; // Estimated width for a text-2xl monospace char
-        const wordWidth = wordText.length * charWidth;
-        let spawnX: number;
-        let attempts = 0;
-        let positionValid = false;
-        
-        do {
-            spawnX = Math.random() * (gameWidth - wordWidth);
-            // Improved collision check: Check for horizontal overlap with other recently spawned words.
-            positionValid = !words.some(word => 
-                word.y < 50 && // Only check against words near the top
-                spawnX < word.x + (word.text.length * charWidth) && 
-                spawnX + wordWidth > word.x
-            );
-            attempts++;
-        } while (!positionValid && attempts < 20); // Increased attempts for deluge
+            const newWord: Word = {
+                id: Date.now() + Math.random(),
+                text: wordText,
+                x: Math.max(0, spawnX),
+                y: -20,
+                status: 'falling',
+                isWaveWord,
+            };
+            return [...currentWords, newWord];
+        });
+    }, [gameWords]);
 
-        const newWord: Word = {
-            id: Date.now() + Math.random(),
-            text: wordText,
-            x: Math.max(0, spawnX),
-            y: -20,
-            status: 'falling',
-            isWaveWord,
-        };
-        setWords(prev => [...prev, newWord]);
-    }, [gameWords, words]);
-
-
+    // This is now a stable function that reads from a ref, preventing stale closures.
     const gameLoop = useCallback(() => {
+        const { gameStatus, isLosingLife, levelPhase, gameSettings, level, waveState, activePowerUps } = gameLoopState.current;
+
         const canRun = gameStatus === GameStatus.Playing && !isLosingLife && levelPhase !== LevelPhase.WaveWarning && levelPhase !== LevelPhase.LevelTransition;
         if (!canRun) {
             if (resumeAnimation.current && !isLosingLife) resumeAnimation.current = null;
+            animationFrameId.current = requestAnimationFrame(gameLoop);
             return;
         }
+        
+        const isTimeSlowedNow = activePowerUps.some((p: ActivePowerUp) => p.type === 'slow-time');
+        const { fallSpeedStart, spawnRateStart } = gameSettings;
+        const baseWordFallSpeed = fallSpeedStart + (level - 1) * WORD_FALL_SPEED_INCREASE;
+        const baseWordSpawnRate = Math.max(200, spawnRateStart - (level - 1) * WORD_SPAWN_RATE_DECREASE);
+
+        let currentWordFallSpeed = baseWordFallSpeed;
+        let currentSpawnRate = baseWordSpawnRate;
+
+        if (levelPhase === LevelPhase.WaveAccelerate) {
+            const elapsed = Date.now() - waveState.startTime;
+            const progress = Math.min(elapsed / WAVE_ACCELERATE_DURATION_MS, 1);
+            const speedMultiplier = WAVE_ACCELERATE_START_SPEED_MULTIPLIER + (WAVE_ACCELERATE_END_SPEED_MULTIPLIER - WAVE_ACCELERATE_START_SPEED_MULTIPLIER) * progress;
+            currentWordFallSpeed *= speedMultiplier;
+            currentSpawnRate = WAVE_ACCELERATE_SPAWN_RATE_MS;
+        } else if (levelPhase === LevelPhase.WaveDeluge) {
+            currentWordFallSpeed *= WAVE_DELUGE_SPEED_MULTIPLIER;
+            currentSpawnRate = WAVE_DELUGE_SPAWN_RATE_MS;
+        } else if (levelPhase === LevelPhase.Boss) {
+            currentSpawnRate = BOSS_SLOW_SPAWN_RATE_MS;
+        }
+
+        const timeSlowMultiplier = isTimeSlowedNow ? 0.4 : 1;
+        currentWordFallSpeed *= timeSlowMultiplier;
         
         let speedRampUpMultiplier = 1;
         if (resumeAnimation.current) {
@@ -259,22 +278,23 @@ const App: React.FC = () => {
             speedRampUpMultiplier = 0.1 + progress * 0.9;
             if (progress >= 1) resumeAnimation.current = null;
         }
-        const currentWordFallSpeed = wordFallSpeed * speedRampUpMultiplier;
+        const finalFrameFallSpeed = currentWordFallSpeed * speedRampUpMultiplier;
 
-        setActivePowerUps(prev => prev.filter(p => p.expiration > Date.now()));
+        setActivePowerUps(prev => prev.filter(p => p.type === 'shield' || p.expiration > Date.now()));
 
         setWords(prevWords => {
             const gameHeight = gameContainerRef.current?.offsetHeight ?? 800;
             const gameWidth = gameContainerRef.current?.offsetWidth ?? 800;
             
+            let currentShields = activePowerUps.find((p: ActivePowerUp) => p.type === 'shield')?.stacks ?? 0;
+
             const updatedWords = prevWords.map(word => {
                 if (word.status !== 'falling') return word;
 
                 if (word.isProjectile) {
                     const newProjectile = { ...word };
-                    const speedMultiplier = isTimeSlowed ? 0.4 : 1;
-                    newProjectile.x += newProjectile.vx! * speedMultiplier;
-                    newProjectile.y += newProjectile.vy! * speedMultiplier;
+                    newProjectile.x += newProjectile.vx! * timeSlowMultiplier;
+                    newProjectile.y += newProjectile.vy! * timeSlowMultiplier;
                     
                     const wordWidth = newProjectile.text.length * 25; // estimate for projectile
 
@@ -288,9 +308,8 @@ const App: React.FC = () => {
                     return newProjectile;
                 } else if (word.vx !== undefined && word.vy !== undefined && word.bounces !== undefined) {
                     const newWord = { ...word };
-                    const speedMultiplier = isTimeSlowed ? 0.4 : 1;
-                    newWord.x += newWord.vx * speedMultiplier;
-                    newWord.y += newWord.vy * speedMultiplier;
+                    newWord.x += newWord.vx * timeSlowMultiplier;
+                    newWord.y += newWord.vy * timeSlowMultiplier;
                     
                     const wordWidth = newWord.text.length * 20;
 
@@ -305,7 +324,7 @@ const App: React.FC = () => {
                     }
                     return newWord;
                 } else {
-                    return { ...word, y: word.y + currentWordFallSpeed };
+                    return { ...word, y: word.y + finalFrameFallSpeed };
                 }
             });
 
@@ -314,9 +333,12 @@ const App: React.FC = () => {
             
             let livesToLose = missedNormalWords.length + missedProjectiles.length;
             if (livesToLose > 0) {
-                if (shieldActive) {
-                    livesToLose -= 1;
-                    setShieldActive(false);
+                if (currentShields > 0) {
+                    const shieldsUsed = Math.min(livesToLose, currentShields);
+                    livesToLose -= shieldsUsed;
+                    setActivePowerUps(prev => {
+                        return prev.map(p => p.type === 'shield' ? { ...p, stacks: p.stacks! - shieldsUsed } : p).filter(p => (p.stacks ?? 1) > 0);
+                    });
                 }
                 if (livesToLose > 0) {
                     setLives(prevLives => prevLives - livesToLose);
@@ -336,7 +358,7 @@ const App: React.FC = () => {
             });
         });
 
-        if (Date.now() - lastSpawnTime.current > wordSpawnRate) {
+        if (Date.now() - lastSpawnTime.current > currentSpawnRate) {
             if (levelPhase === LevelPhase.Normal || levelPhase === LevelPhase.Boss) {
                  spawnWord(false);
                  lastSpawnTime.current = Date.now();
@@ -351,7 +373,7 @@ const App: React.FC = () => {
         }
         
         animationFrameId.current = requestAnimationFrame(gameLoop);
-    }, [gameStatus, spawnWord, wordFallSpeed, wordSpawnRate, isLosingLife, levelPhase, waveState, shieldActive, resetCombo, isTimeSlowed]);
+    }, [spawnWord, resetCombo]);
 
     useEffect(() => {
         if (lives < prevLivesRef.current && gameStatus === GameStatus.Playing) {
@@ -421,7 +443,7 @@ const App: React.FC = () => {
             }, 2000);
         }
 
-    }, [gameStatus, levelPhase, wordsClearedThisLevel, bossState, spawnWord, level, words, waveState]);
+    }, [gameStatus, levelPhase, wordsClearedThisLevel, bossState, level, words, waveState]);
     
     // Boss timer
     useEffect(() => {
@@ -509,19 +531,62 @@ const App: React.FC = () => {
     }, [level, gameStatus, levelPhase]);
 
     const activatePowerUp = useCallback((powerUpType: PowerUpType) => {
-        if (powerUpType === 'slow-time') {
-            setActivePowerUps(prev => [...prev, { type: 'slow-time', expiration: Date.now() + POWERUP_DURATIONS.slowTime }]);
+        setPowerUpActivationFx(powerUpType);
+
+        if (powerUpType === 'shield') {
+            setActivePowerUps(prev => {
+                const existingShield = prev.find(p => p.type === 'shield');
+                if (existingShield) {
+                    return prev.map(p => p.type === 'shield' ? { ...p, stacks: Math.min((p.stacks ?? 1) + 1, MAX_SHIELD_STACKS) } : p);
+                }
+                return [...prev, { id: 'shield', type: 'shield', expiration: Infinity, stacks: 1 }];
+            });
+        } else if (powerUpType === 'slow-time' || powerUpType === 'score-multiplier' || powerUpType === 'frenzy') {
+            const duration = POWERUP_DURATIONS[powerUpType as keyof typeof POWERUP_DURATIONS];
+            setActivePowerUps(prev => {
+                const existing = prev.find(p => p.type === powerUpType);
+                if (existing) {
+                    return prev.map(p => p.type === powerUpType ? { ...p, expiration: p.expiration + duration } : p);
+                }
+                return [...prev, { id: `${powerUpType}-${Date.now()}`, type: powerUpType, expiration: Date.now() + duration }];
+            });
         } else if (powerUpType === 'clear-words') {
+            const wordsToWipe = words.filter(w => w.status === 'falling');
+            const scoreMultiplier = activePowerUps.some(p => p.type === 'score-multiplier') ? 2 : 1;
+            let pointsGained = 0;
+            const newFloatingScores: FloatingScore[] = [];
+
+            wordsToWipe.forEach(word => {
+                // Award 50% of base points for wiped words.
+                const points = Math.round((word.text.length * scoreMultiplier) * 0.5);
+                if (points > 0) {
+                    pointsGained += points;
+                    newFloatingScores.push({
+                        id: Date.now() + Math.random(),
+                        base: points,
+                        bonus: 0,
+                        x: word.x,
+                        y: word.y,
+                        timingLabel: { text: 'WIPED!', colorClass: 'text-cyan-400' }
+                    });
+                }
+            });
+
+            if (pointsGained > 0) {
+                setScore(prev => prev + pointsGained);
+                setFloatingScores(prev => [...prev, ...newFloatingScores]);
+            }
+            setGameStats(prev => ({
+                ...prev,
+                totalWordsCleared: prev.totalWordsCleared + wordsToWipe.length
+            }));
+
             setIsWiping(true);
             setTimeout(() => {
                 setWords(prev => prev.map(w => w.status === 'falling' ? { ...w, status: 'destroyed' } : w));
                 setTimeout(() => setWords(prev => prev.filter(w => w.status !== 'destroyed')), 600);
                 setIsWiping(false);
             }, 800);
-        } else if (powerUpType === 'shield') {
-            setShieldActive(true);
-        } else if (powerUpType === 'score-multiplier') {
-            setActivePowerUps(prev => [...prev, { type: 'score-multiplier', expiration: Date.now() + POWERUP_DURATIONS.scoreMultiplier }]);
         } else if (powerUpType === 'unify') {
             const alphabet = 'abcdefghijklmnopqrstuvwxyz';
             const randomChar = alphabet[Math.floor(Math.random() * alphabet.length)];
@@ -531,10 +596,8 @@ const App: React.FC = () => {
                 const lowestWordIds = new Set(lowestWords.map(w => w.id));
                 return prev.map(w => lowestWordIds.has(w.id) ? { ...w, text: randomChar, isTransformed: true } : w);
             });
-        } else if (powerUpType === 'frenzy') {
-            setActivePowerUps(prev => [...prev, { type: 'frenzy', expiration: Date.now() + POWERUP_DURATIONS.frenzy }]);
         }
-    }, []);
+    }, [words, activePowerUps]);
     
     const removeLightningStrike = useCallback((id: number) => {
         setLightningStrikes(prev => prev.filter(strike => strike.id !== id));
@@ -884,6 +947,7 @@ const App: React.FC = () => {
                         lastCompletionTime={lastCompletionTime} levelPhase={levelPhase} bossState={bossState} isBossHit={isBossHit} showLevelClear={showLevelClear}
                         isScoreBoosted={isScoreBoosted} isFrenzyActive={isFrenzyActive}
                         lightningStrikes={lightningStrikes} onLightningComplete={removeLightningStrike}
+                        powerUpActivationFx={powerUpActivationFx} onActivationFxComplete={() => setPowerUpActivationFx(null)}
                     />
                 );
             case GameStatus.GameOver: return <GameOverScreen score={score} stats={gameStats} difficulty={activeDifficulty} onSubmitScore={handleSubmitScore} onRestart={handleStartPreset} onViewLeaderboard={handleOpenLeaderboard} onMainMenu={returnToStart} />;
@@ -911,6 +975,8 @@ const App: React.FC = () => {
             <AudioManager gameStatus={gameStatus} levelPhase={levelPhase} />
             <BackgroundAnimation isTimeSlowed={isTimeSlowed} difficulty={activeDifficulty} />
             
+            {isGameActive && <ActivePowerUpsDisplay activePowerUps={activePowerUps} />}
+
             <div className="w-full max-w-[90rem] mx-auto flex justify-center items-start gap-8 z-10">
                 <div className="w-64 flex-shrink-0 flex justify-center pt-8">
                     {isGameActive && <ComboIndicator combo={combo} />}
@@ -929,9 +995,22 @@ const App: React.FC = () => {
                                     <p className="text-green-300 text-4xl font-bold" style={{textShadow: '0 0 8px #4ade80'}}>{level}</p>
                                 </div>
                             </div>
-                            <div className="relative glass-panel px-3 py-1.5 flex items-center space-x-2">
-                                {shieldActive && <ShieldIcon />}
-                                {Array.from({ length: lives }).map((_, i) => (<HeartIcon key={i} />))}
+                            <div className="flex flex-col items-end">
+                                {shieldStacks > 0 && (
+                                    <div className="flex items-center gap-2 mb-2 animate-pulse" style={{ animationDuration: '2s' }}>
+                                         <svg
+                                            className="w-8 h-8 text-cyan-400"
+                                            viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                                            style={{ filter: 'drop-shadow(0 0 6px #06b6d4)' }}
+                                         >
+                                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                                        </svg>
+                                        <span className="text-3xl font-black text-cyan-300" style={{ textShadow: '0 0 8px #0ff' }}>{shieldStacks}</span>
+                                    </div>
+                                )}
+                                <div className="relative glass-panel px-3 py-1.5 flex items-center space-x-2">
+                                    {Array.from({ length: lives }).map((_, i) => (<HeartIcon key={i} />))}
+                                </div>
                             </div>
                         </header>
                     )}

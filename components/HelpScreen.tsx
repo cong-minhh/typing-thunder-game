@@ -37,12 +37,12 @@ const HelpScreen: React.FC<HelpScreenProps> = ({ onBack }) => {
                         <p>Typing words fills the power-up meters on the right. When a meter is full, activate it with its hotkey (<Hotkey>1</Hotkey>-<Hotkey>6</Hotkey>).</p>
                         <p>Additionally, look out for special <span className="rainbow-text font-bold">ricocheting power-up words</span> that fly in from the sides! Typing one of these will instantly <span className="font-bold text-cyan-400">charge</span> its meter to full.</p>
                          <ul className="list-disc list-inside ml-4 text-base">
-                            <li><strong>Slow Time</strong> (<Hotkey>1</Hotkey>): Temporarily slows down falling words and the boss timer.</li>
+                            <li><strong>Slow Time</strong> (<Hotkey>1</Hotkey>): Temporarily slows down falling words and the boss timer. Duration extends if re-activated.</li>
                             <li><strong>Screen Wipe</strong> (<Hotkey>2</Hotkey>): Instantly destroys all normal falling words.</li>
-                            <li><strong>Shield</strong> (<Hotkey>3</Hotkey>): Protects you from the next word you miss.</li>
-                            <li><strong>Score Boost</strong> (<Hotkey>4</Hotkey>): Doubles all points earned for a short duration.</li>
+                            <li><strong>Shield</strong> (<Hotkey>3</Hotkey>): Protects you from the next word you miss. Can be stacked up to 3 times.</li>
+                            <li><strong>Score Boost</strong> (<Hotkey>4</Hotkey>): Doubles all points earned for a short duration. Duration extends.</li>
                             <li><strong>Unify</strong> (<Hotkey>5</Hotkey>): Transforms the 10 lowest words into a single letter.</li>
-                            <li><strong>Frenzy</strong> (<Hotkey>6</Hotkey>): Completed words explode, destroying nearby words.</li>
+                            <li><strong>Frenzy</strong> (<Hotkey>6</Hotkey>): Completed words explode, destroying nearby words. Duration extends.</li>
                         </ul>
                     </HelpSection>
                     

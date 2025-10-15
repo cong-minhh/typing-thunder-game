@@ -1,5 +1,5 @@
 import React from 'react';
-import { Word, FloatingScore, LevelPhase, BossState, LightningStrikeInfo } from '../types';
+import { Word, FloatingScore, LevelPhase, BossState, LightningStrikeInfo, PowerUpType } from '../types';
 import FallingWord from './FallingWord';
 import FlowBar from './FlowBar';
 import WaveAlert from './WaveAlert';
@@ -7,6 +7,7 @@ import BossHUD from './BossHUD';
 import BossDisplay from './BossDisplay';
 import LevelClear from './LevelClear';
 import LightningStrike from './LightningStrike';
+import PowerUpActivationFX from './PowerUpActivationFX';
 
 interface GameScreenProps {
     words: Word[];
@@ -24,17 +25,20 @@ interface GameScreenProps {
     isFrenzyActive: boolean;
     lightningStrikes: LightningStrikeInfo[];
     onLightningComplete: (id: number) => void;
+    powerUpActivationFx: PowerUpType | null;
+    onActivationFxComplete: () => void;
 }
 
 const GameScreen: React.FC<GameScreenProps> = ({
     words, typedInput, gameContainerRef, showLevelUp,
     floatingScores, isTimeSlowed, lastCompletionTime,
     levelPhase, bossState, isBossHit, showLevelClear, isScoreBoosted, isFrenzyActive,
-    lightningStrikes, onLightningComplete
+    lightningStrikes, onLightningComplete, powerUpActivationFx, onActivationFxComplete
 }) => {
     return (
-        <div ref={gameContainerRef} className={`h-full w-full relative p-4 ${levelPhase === LevelPhase.WaveAccelerate ? 'animate-screen-shake-continuous' : ''}`}>
-            {isTimeSlowed && <div className="absolute inset-0 bg-cyan-900/20 z-10 pointer-events-none transition-opacity duration-300" />}
+        <div ref={gameContainerRef} className={`h-full w-full relative p-4 transition-all duration-500 ${levelPhase === LevelPhase.WaveAccelerate ? 'animate-screen-shake-continuous' : ''} ${isTimeSlowed ? 'grayscale' : ''}`}>
+            <PowerUpActivationFX activeFx={powerUpActivationFx} onComplete={onActivationFxComplete} />
+
             {isScoreBoosted && <div className="absolute inset-0 border-4 border-yellow-400 rounded-lg pointer-events-none z-10 animate-pulse" style={{ animationDuration: '0.5s' }} />}
             {isFrenzyActive && <div className="absolute inset-0 border-4 border-orange-500 rounded-lg pointer-events-none z-10 animate-pulse" style={{ animationDuration: '0.4s' }} />}
             
