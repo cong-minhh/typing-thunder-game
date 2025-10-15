@@ -2,7 +2,6 @@ import React, { useRef, useEffect } from 'react';
 import { Word, FloatingScore } from '../types';
 import FallingWord from './FallingWord';
 import HeartIcon from './UI/HeartIcon';
-import ComboIndicator from './ComboIndicator';
 
 interface GameScreenProps {
     words: Word[];
@@ -14,7 +13,6 @@ interface GameScreenProps {
     gameContainerRef: React.RefObject<HTMLDivElement>;
     showLevelUp: boolean;
     inputStatus: 'idle' | 'correct' | 'incorrect';
-    combo: number;
     floatingScores: FloatingScore[];
 }
 
@@ -28,7 +26,6 @@ const GameScreen: React.FC<GameScreenProps> = ({
     gameContainerRef,
     showLevelUp,
     inputStatus,
-    combo,
     floatingScores,
 }) => {
     const inputRef = useRef<HTMLInputElement>(null);
@@ -57,9 +54,6 @@ const GameScreen: React.FC<GameScreenProps> = ({
                     ))}
                 </div>
             </div>
-
-            {/* Combo Indicator */}
-            <ComboIndicator combo={combo} />
 
             {/* Level Up Animation */}
             {showLevelUp && (

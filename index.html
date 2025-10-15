@@ -99,6 +99,19 @@
   .animate-combo-glow-red {
       animation: combo-glow-red 1.5s ease-in-out infinite;
   }
+  @keyframes heartbeat {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+  }
+  .animate-heartbeat-slow {
+    animation: heartbeat 2s ease-in-out infinite;
+  }
+  .animate-heartbeat-medium {
+    animation: heartbeat 1.2s ease-in-out infinite;
+  }
+  .animate-heartbeat-fast {
+    animation: heartbeat 0.8s ease-in-out infinite;
+  }
 </style>
 </head>
 <body class="bg-slate-900 text-white">

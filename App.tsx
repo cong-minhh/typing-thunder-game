@@ -4,6 +4,7 @@ import { fetchWords } from './services/geminiService';
 import GameScreen from './components/GameScreen';
 import StartScreen from './components/StartScreen';
 import GameOverScreen from './components/GameOverScreen';
+import ComboIndicator from './components/ComboIndicator';
 import { INITIAL_LIVES, LEVEL_UP_SCORE, WORD_FALL_SPEED_INCREASE, WORD_SPAWN_RATE_DECREASE, DIFFICULTY_SETTINGS } from './constants';
 
 const App: React.FC = () => {
@@ -269,7 +270,6 @@ const App: React.FC = () => {
                         gameContainerRef={gameContainerRef}
                         showLevelUp={showLevelUp}
                         inputStatus={inputStatus}
-                        combo={combo}
                         floatingScores={floatingScores}
                     />
                 );
@@ -285,8 +285,19 @@ const App: React.FC = () => {
             <h1 className="text-5xl font-bold text-cyan-400 mb-2 tracking-widest" style={{ textShadow: '0 0 10px #0ff' }}>
                 TYPING THUNDER
             </h1>
-            <div className={`w-full max-w-4xl h-[70vh] bg-slate-800/50 border-2 border-cyan-400/50 rounded-lg shadow-2xl shadow-cyan-500/10 relative overflow-hidden ${isShaking ? 'animate-shake' : ''}`}>
-                {renderContent()}
+            <div className="w-full max-w-6xl mx-auto flex justify-center items-center gap-8">
+                {/* Left side for Combo */}
+                <div className="w-64 flex-shrink-0 flex justify-center">
+                    {gameStatus === GameStatus.Playing && <ComboIndicator combo={combo} />}
+                </div>
+
+                {/* Game container */}
+                <div className={`w-full max-w-4xl h-[70vh] bg-slate-800/50 border-2 border-cyan-400/50 rounded-lg shadow-2xl shadow-cyan-500/10 relative overflow-hidden ${isShaking ? 'animate-shake' : ''}`}>
+                    {renderContent()}
+                </div>
+
+                {/* Right side spacer for balance */}
+                <div className="w-64 flex-shrink-0"></div>
             </div>
         </div>
     );
