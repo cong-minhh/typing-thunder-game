@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 
 const API_KEY = process.env.API_KEY;
@@ -9,11 +8,29 @@ if (!API_KEY) {
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
-export const fetchWords = async (): Promise<string[]> => {
+const getPromptForLevel = (level: number): string => {
+    let description = '';
+    const wordCount = 50;
+
+    if (level === 1) {
+        description = "4 and 5 characters long, very common";
+    } else if (level <= 3) {
+        description = "5 to 7 characters long, common nouns and verbs";
+    } else if (level <= 5) {
+        description = "6 to 8 characters long, moderately complex";
+    } else {
+        description = "7 to 10 characters long, from advanced vocabulary (e.g., science, literature, technology)";
+    }
+
+    return `Generate a JSON array of ${wordCount} unique English words suitable for a typing game. The words should be ${description}, lowercase, and contain no special characters.`;
+};
+
+export const fetchWords = async (level: number): Promise<string[]> => {
     try {
+        const prompt = getPromptForLevel(level);
         const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
-            contents: "Generate a JSON array of 100 common English words suitable for a typing game. The words should be between 4 and 8 characters long, lowercase, and contain no special characters.",
+            contents: prompt,
             config: {
                 responseMimeType: "application/json",
                 responseSchema: {

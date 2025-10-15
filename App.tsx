@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { GameStatus, Word } from './types';
+import { GameStatus, Word, Difficulty } from './types';
 import { fetchWords } from './services/geminiService';
 import GameScreen from './components/GameScreen';
 import StartScreen from './components/StartScreen';
 import GameOverScreen from './components/GameOverScreen';
-import { INITIAL_LIVES, LEVEL_UP_SCORE, WORD_FALL_SPEED_START, WORD_FALL_SPEED_INCREASE, WORD_SPAWN_RATE_START, WORD_SPAWN_RATE_DECREASE } from './constants';
+import { INITIAL_LIVES, LEVEL_UP_SCORE, WORD_FALL_SPEED_INCREASE, WORD_SPAWN_RATE_DECREASE, DIFFICULTY_SETTINGS } from './constants';
 
 const App: React.FC = () => {
     const [gameStatus, setGameStatus] = useState<GameStatus>(GameStatus.Start);
@@ -19,14 +19,17 @@ const App: React.FC = () => {
     const [isShaking, setIsShaking] = useState<boolean>(false);
     const [showLevelUp, setShowLevelUp] = useState<boolean>(false);
     const [inputStatus, setInputStatus] = useState<'idle' | 'correct' | 'incorrect'>('idle');
+    const [difficulty, setDifficulty] = useState<Difficulty>('Medium');
 
     const animationFrameId = useRef<number | null>(null);
     const lastSpawnTime = useRef<number>(Date.now());
     const gameContainerRef = useRef<HTMLDivElement>(null);
     const inputStatusTimeout = useRef<number | null>(null);
-
-    const wordFallSpeed = WORD_FALL_SPEED_START + (level - 1) * WORD_FALL_SPEED_INCREASE;
-    const wordSpawnRate = Math.max(200, WORD_SPAWN_RATE_START - (level - 1) * WORD_SPAWN_RATE_DECREASE);
+    const wordComplexityLevel = useRef<number>(1);
+    
+    const difficultySettings = DIFFICULTY_SETTINGS[difficulty];
+    const wordFallSpeed = difficultySettings.WORD_FALL_SPEED_START + (level - 1) * WORD_FALL_SPEED_INCREASE;
+    const wordSpawnRate = Math.max(200, difficultySettings.WORD_SPAWN_RATE_START - (level - 1) * WORD_SPAWN_RATE_DECREASE);
 
     const resetGameState = useCallback(() => {
         setWords([]);
@@ -38,11 +41,17 @@ const App: React.FC = () => {
         lastSpawnTime.current = Date.now();
     }, []);
 
-    const startGame = useCallback(async () => {
+    const startGame = useCallback(async (selectedDifficulty: Difficulty) => {
         resetGameState();
         setIsLoading(true);
+        setError(null);
+        setDifficulty(selectedDifficulty);
+
+        const startComplexity = DIFFICULTY_SETTINGS[selectedDifficulty].COMPLEXITY_START_LEVEL;
+        wordComplexityLevel.current = startComplexity;
+
         try {
-            const newWords = await fetchWords();
+            const newWords = await fetchWords(startComplexity);
             setWordBank(newWords);
             setGameStatus(GameStatus.Playing);
         } catch (err) {
@@ -91,7 +100,7 @@ const App: React.FC = () => {
             const updatedWords = prevWords.map(word => ({
                 ...word,
                 y: word.y + wordFallSpeed,
-            })).filter(word => word.status === 'falling'); // Only move falling words
+            })).filter(word => word.status === 'falling');
 
             const missedWords = updatedWords.filter(word => word.y >= gameHeight);
             if (missedWords.length > 0) {
@@ -137,12 +146,29 @@ const App: React.FC = () => {
     }, [lives]);
     
     useEffect(() => {
-        if (score > 0 && score >= level * LEVEL_UP_SCORE) {
+        if (gameStatus === GameStatus.Playing && score > 0 && score >= level * LEVEL_UP_SCORE) {
             setLevel(prevLevel => prevLevel + 1);
+        }
+    }, [score, level, gameStatus]);
+
+    useEffect(() => {
+        if (level > 1 && gameStatus === GameStatus.Playing) {
             setShowLevelUp(true);
             setTimeout(() => setShowLevelUp(false), 1500);
+            
+            const fetchNewWords = async () => {
+                wordComplexityLevel.current += 1;
+                try {
+                    const additionalWords = await fetchWords(wordComplexityLevel.current);
+                    setWordBank(prev => [...new Set([...prev, ...additionalWords])]);
+                } catch (err) {
+                    console.error(`Failed to fetch more words for complexity ${wordComplexityLevel.current}:`, err);
+                }
+            };
+            fetchNewWords();
         }
-    }, [score, level]);
+    }, [level, gameStatus]);
+
 
     const handleInputChange = (newValue: string) => {
         const lowercasedValue = newValue.toLowerCase();
@@ -151,7 +177,7 @@ const App: React.FC = () => {
             clearTimeout(inputStatusTimeout.current);
         }
     
-        if (lowercasedValue.length > typedInput.length) { // A character was added
+        if (lowercasedValue.length > typedInput.length) {
             const isCorrectPrefix = words.some(word => word.status === 'falling' && word.text.startsWith(lowercasedValue));
             if (isCorrectPrefix) {
                 setInputStatus('correct');
@@ -187,13 +213,16 @@ const App: React.FC = () => {
     }, [typedInput, words]);
 
     useEffect(() => {
-        // Cleanup timeout on component unmount
         return () => {
             if (inputStatusTimeout.current) {
                 clearTimeout(inputStatusTimeout.current);
             }
         };
     }, []);
+
+    const returnToStart = () => {
+        setGameStatus(GameStatus.Start);
+    };
 
     const renderContent = () => {
         switch (gameStatus) {
@@ -214,7 +243,7 @@ const App: React.FC = () => {
                     />
                 );
             case GameStatus.GameOver:
-                return <GameOverScreen score={score} onRestart={startGame} />;
+                return <GameOverScreen score={score} onRestart={returnToStart} />;
             default:
                 return null;
         }
