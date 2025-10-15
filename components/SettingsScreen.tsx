@@ -78,6 +78,23 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ initialSettings, onStar
                     displayValue={`${settings.spawnRateStart} ms`}
                 />
                 
+                <hr className="border-slate-600/50 my-6" />
+
+                <div className="flex justify-between items-center my-6">
+                    <div>
+                        <h3 className="text-xl text-slate-300">Hardcore Mode</h3>
+                        <p className="text-sm text-slate-400 font-normal">Break combo on any mistype.</p>
+                    </div>
+                    <label className="toggle-switch">
+                        <input 
+                            type="checkbox" 
+                            checked={settings.hardcoreMode}
+                            onChange={(e) => setSettings(s => ({ ...s, hardcoreMode: e.target.checked }))}
+                        />
+                        <span className="slider"></span>
+                    </label>
+                </div>
+
                 <div className="flex justify-center gap-6 mt-8">
                     <button
                         onClick={onBack}

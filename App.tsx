@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { GameStatus, Word, Difficulty, FloatingScore, PowerUpType, ActivePowerUp, LevelPhase, BossState, GameSettings, GameStats, LeaderboardEntry } from './types';
+import { GameStatus, Word, Difficulty, FloatingScore, PowerUpType, ActivePowerUp, LevelPhase, BossState, GameSettings, GameStats, LeaderboardEntry, LightningStrikeInfo } from './types';
 import GameScreen from './components/GameScreen';
 import StartScreen from './components/StartScreen';
 import GameOverScreen from './components/GameOverScreen';
@@ -62,6 +62,8 @@ const App: React.FC = () => {
     const [shieldActive, setShieldActive] = useState(false);
     const [gameStats, setGameStats] = useState<GameStats>(initialGameStats);
     const [lastSubmittedScoreId, setLastSubmittedScoreId] = useState<string | null>(null);
+    const [lastCompletedWordPosition, setLastCompletedWordPosition] = useState<{ x: number; y: number } | null>(null);
+    const [lightningStrikes, setLightningStrikes] = useState<LightningStrikeInfo[]>([]);
 
     // New state for waves and bosses
     const [levelPhase, setLevelPhase] = useState<LevelPhase>(LevelPhase.Normal);
@@ -104,6 +106,11 @@ const App: React.FC = () => {
 
     wordFallSpeed *= fallSpeedMultiplier;
 
+    const resetCombo = useCallback(() => {
+        setCombo(0);
+        setLastCompletionTime(null);
+        setLastCompletedWordPosition(null);
+    }, []);
 
     const resetGameState = useCallback((settings: GameSettings) => {
         setWords([]);
@@ -111,14 +118,13 @@ const App: React.FC = () => {
         setScore(0);
         setLives(settings.startingLives);
         setLevel(1);
-        setCombo(0);
+        resetCombo();
         setFloatingScores([]);
         setPowerUpProgress({ slowTime: 0, clearWords: 0, shield: 0, scoreMultiplier: 0, unify: 0, frenzy: 0 });
         setPowerUpsReady({ slowTime: false, clearWords: false, shield: false, scoreMultiplier: false, unify: false, frenzy: false });
         setActivePowerUps([]);
         setShieldActive(false);
         setIsLosingLife(false);
-        setLastCompletionTime(null);
         setLevelPhase(LevelPhase.Normal);
         setWordsClearedThisLevel(0);
         setBossState(null);
@@ -127,7 +133,7 @@ const App: React.FC = () => {
         setGameStats({ ...initialGameStats, startTime: Date.now() });
         if (bossTimerInterval.current) clearInterval(bossTimerInterval.current);
         lastSpawnTime.current = Date.now();
-    }, []);
+    }, [resetCombo]);
 
     const beginPlaying = useCallback((selectedDifficulty: Difficulty) => {
         let selectedWordList: string[];
@@ -267,8 +273,7 @@ const App: React.FC = () => {
                 }
                 if (livesToLose > 0) {
                     setLives(prevLives => prevLives - livesToLose);
-                    setCombo(0);
-                    setLastCompletionTime(null);
+                    resetCombo();
                 }
             }
 
@@ -290,13 +295,13 @@ const App: React.FC = () => {
         }
         
         animationFrameId.current = requestAnimationFrame(gameLoop);
-    }, [gameStatus, spawnWord, wordFallSpeed, wordSpawnRate, isLosingLife, levelPhase, waveState, shieldActive]);
+    }, [gameStatus, spawnWord, wordFallSpeed, wordSpawnRate, isLosingLife, levelPhase, waveState, shieldActive, resetCombo]);
 
     useEffect(() => {
         if (lives < prevLivesRef.current && gameStatus === GameStatus.Playing) {
             setIsLosingLife(true);
             setTypedInput('');
-            setLastCompletionTime(null);
+            resetCombo();
     
             setIsWiping(true);
             setTimeout(() => {
@@ -311,7 +316,7 @@ const App: React.FC = () => {
             }, 2000);
         }
         prevLivesRef.current = lives;
-    }, [lives, gameStatus]);
+    }, [lives, gameStatus, resetCombo]);
 
     // Level Phase management
     useEffect(() => {
@@ -474,6 +479,10 @@ const App: React.FC = () => {
             setActivePowerUps(prev => [...prev, { type: 'frenzy', expiration: Date.now() + POWERUP_DURATIONS.frenzy }]);
         }
     }, []);
+    
+    const removeLightningStrike = useCallback((id: number) => {
+        setLightningStrikes(prev => prev.filter(strike => strike.id !== id));
+    }, []);
 
     const processWordCompletion = (matchedWords: Word[]) => {
         const now = Date.now();
@@ -524,6 +533,20 @@ const App: React.FC = () => {
             const baseScore = matchedWord.text.length;
             const finalPoints = Math.round(baseScore * timingBonusMultiplier * scoreMultiplier);
             totalPointsGained += finalPoints;
+
+            const currentWordCenter = {
+                x: matchedWord.x + (matchedWord.text.length * 15) / 2,
+                y: matchedWord.y + 10,
+            };
+
+            if (combo > 0 && lastCompletedWordPosition) {
+                 setLightningStrikes(prev => [...prev, {
+                    id: Date.now(),
+                    start: lastCompletedWordPosition,
+                    end: currentWordCenter,
+                }]);
+            }
+            setLastCompletedWordPosition(currentWordCenter);
 
             newFloatingScores.push({
                 id: Date.now() + Math.random(), base: baseScore, bonus: 0,
@@ -622,6 +645,7 @@ const App: React.FC = () => {
                     totalWordsCleared: prev.totalWordsCleared + 1
                 }));
                 setLastCompletionTime(Date.now());
+                setLastCompletedWordPosition(null); // No lightning for boss words
 
                 if (newHealth <= 0) {
                     setWords([]);
@@ -635,22 +659,26 @@ const App: React.FC = () => {
         }
 
         // --- Falling Word Check (if not a boss word) ---
-        const matchedWords = words.filter(word => word.status === 'falling' && word.text.toLowerCase() === trimmedInput);
-        if (matchedWords.length > 0) {
-            const powerUpWord = matchedWords.find(w => w.powerUp);
-            if (powerUpWord) { // It's a power-up word
-                activatePowerUp(powerUpWord.powerUp!);
-                setWords(prev => prev.map(w => w.id === powerUpWord.id ? { ...w, status: 'destroyed' } : w));
-                setTimeout(() => setWords(prev => prev.filter(w => w.id !== powerUpWord.id)), 600);
+        const allMatchedWords = words.filter(word => word.status === 'falling' && word.text.toLowerCase() === trimmedInput);
+        
+        if (allMatchedWords.length > 0) {
+            // Prioritize the word lowest on the screen (highest y value).
+            const wordToComplete = allMatchedWords.sort((a, b) => b.y - a.y)[0];
+
+            if (wordToComplete.powerUp) { // It's a power-up word
+                activatePowerUp(wordToComplete.powerUp);
+                setWords(prev => prev.map(w => w.id === wordToComplete.id ? { ...w, status: 'destroyed' } : w));
+                setTimeout(() => setWords(prev => prev.filter(w => w.id !== wordToComplete.id)), 600);
+                resetCombo();
 
                 setFloatingScores(prev => [...prev, {
                     id: Date.now(), base: 0, bonus: 0,
-                    timingLabel: { text: `${powerUpWord.text}!`, colorClass: 'text-cyan-400' },
-                    x: powerUpWord.x, y: powerUpWord.y
+                    timingLabel: { text: `${wordToComplete.text}!`, colorClass: 'text-cyan-400' },
+                    x: wordToComplete.x, y: wordToComplete.y
                 }]);
                 setTypedInput('');
             } else { // It's a regular falling word
-                processWordCompletion(matchedWords);
+                processWordCompletion([wordToComplete]); // Pass an array with only the single selected word
             }
         }
     };
@@ -673,6 +701,9 @@ const App: React.FC = () => {
             }
             if (!isCorrectPrefix) {
                 setGameStats(prev => ({ ...prev, totalMistypes: prev.totalMistypes + 1}));
+                if (gameSettings.hardcoreMode) {
+                    resetCombo();
+                }
             }
             setInputStatus(isCorrectPrefix ? 'correct' : 'incorrect');
             inputStatusTimeout.current = window.setTimeout(() => setInputStatus('idle'), 300);
@@ -757,6 +788,7 @@ const App: React.FC = () => {
                         isTimeSlowed={isTimeSlowed}
                         lastCompletionTime={lastCompletionTime} levelPhase={levelPhase} bossState={bossState} isBossHit={isBossHit} showLevelClear={showLevelClear}
                         isScoreBoosted={isScoreBoosted} isFrenzyActive={isFrenzyActive}
+                        lightningStrikes={lightningStrikes} onLightningComplete={removeLightningStrike}
                     />
                 );
             case GameStatus.GameOver: return <GameOverScreen score={score} stats={gameStats} difficulty={activeDifficulty} onSubmitScore={handleSubmitScore} onRestart={handleStartPreset} onViewLeaderboard={handleOpenLeaderboard} onMainMenu={returnToStart} />;

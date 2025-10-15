@@ -1,4 +1,5 @@
 
+
 // Fix: Removed self-import of GameStatus which was causing a declaration conflict.
 export enum GameStatus {
     Start,
@@ -27,6 +28,7 @@ export interface GameSettings {
     startingLives: number;
     fallSpeedStart: number;
     spawnRateStart: number;
+    hardcoreMode: boolean;
 }
 
 export interface Word {
@@ -89,4 +91,10 @@ export interface LeaderboardEntry {
     longestCombo: number;
     difficulty: Difficulty;
     timestamp: number;
+}
+
+export interface LightningStrikeInfo {
+    id: number;
+    start: { x: number; y: number };
+    end: { x: number; y: number };
 }

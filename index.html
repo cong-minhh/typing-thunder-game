@@ -96,6 +96,53 @@
     background-color: #38bdf8;
   }
 
+  /* New Toggle Switch Styles */
+  .toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+  }
+  .toggle-switch input { 
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #334155; /* slate-700 */
+    transition: .4s;
+    border-radius: 34px;
+    border: 1px solid #475569; /* slate-600 */
+  }
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+  }
+  input:checked + .slider {
+    background-color: #dc2626; /* red-600 */
+    box-shadow: 0 0 10px #ef4444; /* red-500 */
+  }
+  input:focus + .slider {
+    box-shadow: 0 0 1px #dc2626;
+  }
+  input:checked + .slider:before {
+    transform: translateX(26px);
+  }
+
+
   @keyframes shake {
     10%, 90% { transform: translate3d(-1px, 0, 0); }
     20%, 80% { transform: translate3d(2px, 0, 0); }
@@ -404,6 +451,24 @@
   .animate-panel-float {
     animation: panel-float 6s ease-in-out infinite;
   }
+
+  /* New Lightning Animations */
+  @keyframes lightning-draw {
+      to { stroke-dashoffset: 0; }
+  }
+  @keyframes lightning-fade-out {
+      from { opacity: 1; }
+      to { opacity: 0; }
+  }
+  .animate-lightning-strike {
+    animation: lightning-fade-out 0.4s ease-out forwards;
+  }
+  .animate-lightning-strike path {
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+    animation: lightning-draw 0.1s linear forwards;
+  }
+
 </style>
 </head>
 <body class="bg-slate-900 text-white">

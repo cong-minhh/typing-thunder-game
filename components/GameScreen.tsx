@@ -1,11 +1,12 @@
 import React from 'react';
-import { Word, FloatingScore, LevelPhase, BossState } from '../types';
+import { Word, FloatingScore, LevelPhase, BossState, LightningStrikeInfo } from '../types';
 import FallingWord from './FallingWord';
 import FlowBar from './FlowBar';
 import WaveAlert from './WaveAlert';
 import BossHUD from './BossHUD';
 import BossDisplay from './BossDisplay';
 import LevelClear from './LevelClear';
+import LightningStrike from './LightningStrike';
 
 interface GameScreenProps {
     words: Word[];
@@ -21,12 +22,15 @@ interface GameScreenProps {
     showLevelClear: boolean;
     isScoreBoosted: boolean;
     isFrenzyActive: boolean;
+    lightningStrikes: LightningStrikeInfo[];
+    onLightningComplete: (id: number) => void;
 }
 
 const GameScreen: React.FC<GameScreenProps> = ({
     words, typedInput, gameContainerRef, showLevelUp,
     floatingScores, isTimeSlowed, lastCompletionTime,
-    levelPhase, bossState, isBossHit, showLevelClear, isScoreBoosted, isFrenzyActive
+    levelPhase, bossState, isBossHit, showLevelClear, isScoreBoosted, isFrenzyActive,
+    lightningStrikes, onLightningComplete
 }) => {
     return (
         <div ref={gameContainerRef} className={`h-full w-full relative p-4 ${levelPhase === LevelPhase.WaveAccelerate ? 'animate-screen-shake-continuous' : ''}`}>
@@ -61,6 +65,12 @@ const GameScreen: React.FC<GameScreenProps> = ({
                     )}
                 </div>
             ))}
+
+            <div className="absolute inset-0 pointer-events-none">
+                {lightningStrikes.map(strike => (
+                    <LightningStrike key={strike.id} strike={strike} onComplete={onLightningComplete} />
+                ))}
+            </div>
 
             <div className="absolute inset-0">
                 {words.map(word => (<FallingWord key={word.id} word={word} typedInput={typedInput} />))}

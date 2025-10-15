@@ -11,16 +11,19 @@ export const DIFFICULTY_PRESETS: Record<Difficulty, GameSettings> = {
         startingLives: 5,
         fallSpeedStart: 0.4,
         spawnRateStart: 2000,
+        hardcoreMode: false,
     },
     Medium: {
         startingLives: 3,
         fallSpeedStart: 0.6,
         spawnRateStart: 1600,
+        hardcoreMode: false,
     },
     Hard: {
         startingLives: 2,
         fallSpeedStart: 0.8,
         spawnRateStart: 1200,
+        hardcoreMode: false,
     }
 };
 
