@@ -1,7 +1,7 @@
 import React from 'react';
 
 const ShieldIcon: React.FC = () => (
-    <div className="absolute -left-2 -top-2 -right-2 -bottom-2 flex items-center justify-center pointer-events-none animate-shield-pulse">
+    <div className="relative w-10 h-10 animate-shield-pulse">
         <svg
             className="w-full h-full text-cyan-400"
             viewBox="0 0 24 24"

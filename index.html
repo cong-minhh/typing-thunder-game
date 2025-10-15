@@ -493,6 +493,54 @@
     animation: lightning-draw 0.1s linear forwards;
   }
 
+  /* New Power-Up Animations */
+  @keyframes gold-particles {
+    0% { background-position: 0% 0%; }
+    100% { background-position: 0% 100%; }
+  }
+  .animate-gold-particles {
+    background-image:
+      radial-gradient(circle at 20% 20%, #fcd34d44, transparent 2px),
+      radial-gradient(circle at 80% 30%, #fde04744, transparent 2px),
+      radial-gradient(circle at 30% 80%, #fbbf2444, transparent 3px),
+      radial-gradient(circle at 70% 70%, #facc1544, transparent 2px);
+    background-size: 100px 100px;
+    animation: gold-particles 5s linear infinite;
+  }
+
+  @keyframes frenzy-embers {
+    0% { transform: translateY(0); opacity: 1; }
+    100% { transform: translateY(-100vh); opacity: 0; }
+  }
+  .animate-frenzy-embers {
+    background-image: 
+      radial-gradient(circle at 10% 90%, #fb923c, transparent 2px),
+      radial-gradient(circle at 50% 80%, #f97316, transparent 2px),
+      radial-gradient(circle at 90% 70%, #ea580c, transparent 3px),
+      radial-gradient(circle at 30% 60%, #fdba74, transparent 2px),
+      radial-gradient(circle at 70% 50%, #fed7aa, transparent 1px);
+    background-repeat: repeat;
+    background-size: 50px 50px;
+    animation: frenzy-embers 3s linear infinite;
+  }
+
+  /* For ActivePowerUpsDisplay */
+  .powerup-timer-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      height: 4px;
+      background: linear-gradient(to right, #0ea5e9, #67e8f9);
+      transition: width 0.1s linear;
+  }
+  @keyframes powerup-enter {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  .animate-powerup-enter {
+      animation: powerup-enter 0.3s ease-out forwards;
+  }
+
 </style>
 </head>
 <body class="bg-slate-900 text-white">

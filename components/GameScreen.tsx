@@ -35,8 +35,18 @@ const GameScreen: React.FC<GameScreenProps> = ({
     return (
         <div ref={gameContainerRef} className={`h-full w-full relative p-4 ${levelPhase === LevelPhase.WaveAccelerate ? 'animate-screen-shake-continuous' : ''}`}>
             {isTimeSlowed && <div className="absolute inset-0 bg-cyan-900/20 z-10 pointer-events-none transition-opacity duration-300" />}
-            {isScoreBoosted && <div className="absolute inset-0 border-4 border-yellow-400 rounded-lg pointer-events-none z-10 animate-pulse" style={{ animationDuration: '0.5s' }} />}
-            {isFrenzyActive && <div className="absolute inset-0 border-4 border-orange-500 rounded-lg pointer-events-none z-10 animate-pulse" style={{ animationDuration: '0.4s' }} />}
+            {isScoreBoosted && (
+                <>
+                    <div className="absolute inset-0 border-4 border-yellow-400 rounded-lg pointer-events-none z-10 animate-pulse" style={{ animationDuration: '0.5s' }} />
+                    <div className="absolute inset-0 pointer-events-none z-10 animate-gold-particles" />
+                </>
+            )}
+            {isFrenzyActive && (
+                 <>
+                    <div className="absolute inset-0 border-4 border-orange-500 rounded-lg pointer-events-none z-10 animate-pulse" style={{ animationDuration: '0.4s' }} />
+                    <div className="absolute inset-0 pointer-events-none z-10 animate-frenzy-embers" />
+                </>
+            )}
             
             {levelPhase === LevelPhase.WaveAccelerate && <div className="absolute inset-0 pointer-events-none z-0 animate-vignette-pulse" />}
             {levelPhase === LevelPhase.WaveDeluge && <div className="absolute inset-0 pointer-events-none z-0 animate-deluge-bg" />}

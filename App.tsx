@@ -17,9 +17,10 @@ import LifeLostOverlay from './components/LifeLostOverlay';
 import AudioManager from './components/AudioManager';
 import SettingsScreen from './components/SettingsScreen';
 import HelpScreen from './components/HelpScreen';
-import ShieldIcon from './components/UI/ShieldIcon';
 import { leaderboardService } from './services/leaderboardService';
 import LeaderboardScreen from './components/LeaderboardScreen';
+import ShieldDisplay from './components/UI/ShieldDisplay';
+import ActivePowerUpsDisplay from './components/ActivePowerUpsDisplay';
 
 const POWERUP_SPAWN_CHANCE = 0.05; // 5% chance
 const FRENZY_RADIUS = 150; // pixels
@@ -59,7 +60,7 @@ const App: React.FC = () => {
     const [isLosingLife, setIsLosingLife] = useState(false);
     const [lastCompletionTime, setLastCompletionTime] = useState<number | null>(null);
     const [activeDifficulty, setActiveDifficulty] = useState<Difficulty>('Medium');
-    const [shieldActive, setShieldActive] = useState(false);
+    const [shieldCharges, setShieldCharges] = useState(0);
     const [gameStats, setGameStats] = useState<GameStats>(initialGameStats);
     const [lastSubmittedScoreId, setLastSubmittedScoreId] = useState<string | null>(null);
     const [lastCompletedWordPosition, setLastCompletedWordPosition] = useState<{ x: number; y: number } | null>(null);
@@ -123,7 +124,7 @@ const App: React.FC = () => {
         setPowerUpProgress({ slowTime: 0, clearWords: 0, shield: 0, scoreMultiplier: 0, unify: 0, frenzy: 0 });
         setPowerUpsReady({ slowTime: false, clearWords: false, shield: false, scoreMultiplier: false, unify: false, frenzy: false });
         setActivePowerUps([]);
-        setShieldActive(false);
+        setShieldCharges(0);
         setIsLosingLife(false);
         setLevelPhase(LevelPhase.Normal);
         setWordsClearedThisLevel(0);
@@ -312,16 +313,25 @@ const App: React.FC = () => {
             const missedNormalWords = updatedWords.filter(w => w.status === 'falling' && !w.powerUp && !w.isProjectile && w.y >= gameHeight);
             const missedProjectiles = updatedWords.filter(w => w.status === 'falling' && w.isProjectile && w.y >= gameHeight);
             
-            let livesToLose = missedNormalWords.length + missedProjectiles.length;
-            if (livesToLose > 0) {
-                if (shieldActive) {
-                    livesToLose -= 1;
-                    setShieldActive(false);
+            let livesToLose = missedNormalWords.length;
+            let projectilesToLose = missedProjectiles.length;
+
+            if (shieldCharges > 0) {
+                const totalMisses = livesToLose + projectilesToLose;
+                const shieldsUsed = Math.min(shieldCharges, totalMisses);
+                setShieldCharges(prev => prev - shieldsUsed);
+                if (livesToLose >= shieldsUsed) {
+                    livesToLose -= shieldsUsed;
+                    projectilesToLose = projectilesToLose;
+                } else {
+                    projectilesToLose -= (shieldsUsed - livesToLose);
+                    livesToLose = 0;
                 }
-                if (livesToLose > 0) {
-                    setLives(prevLives => prevLives - livesToLose);
-                    resetCombo();
-                }
+            }
+
+            if (livesToLose > 0 || projectilesToLose > 0) {
+                setLives(prevLives => prevLives - livesToLose - projectilesToLose);
+                resetCombo();
             }
 
             return updatedWords.filter(word => {
@@ -351,7 +361,7 @@ const App: React.FC = () => {
         }
         
         animationFrameId.current = requestAnimationFrame(gameLoop);
-    }, [gameStatus, spawnWord, wordFallSpeed, wordSpawnRate, isLosingLife, levelPhase, waveState, shieldActive, resetCombo, isTimeSlowed]);
+    }, [gameStatus, spawnWord, wordFallSpeed, wordSpawnRate, isLosingLife, levelPhase, waveState, shieldCharges, resetCombo, isTimeSlowed]);
 
     useEffect(() => {
         if (lives < prevLivesRef.current && gameStatus === GameStatus.Playing) {
@@ -512,14 +522,34 @@ const App: React.FC = () => {
         if (powerUpType === 'slow-time') {
             setActivePowerUps(prev => [...prev, { type: 'slow-time', expiration: Date.now() + POWERUP_DURATIONS.slowTime }]);
         } else if (powerUpType === 'clear-words') {
+            const wordsToClear = words.filter(w => w.status === 'falling' && !w.powerUp && !w.isProjectile);
+            let pointsFromWipe = 0;
+            const newFloatingScores: FloatingScore[] = [];
+
+            wordsToClear.forEach(word => {
+                const points = Math.round(word.text.length * 0.5); // Half points for wiped words
+                pointsFromWipe += points;
+                newFloatingScores.push({
+                    id: Date.now() + Math.random(),
+                    base: points, bonus: 0,
+                    timingLabel: { text: 'WIPED!', colorClass: 'text-cyan-400' },
+                    x: word.x, y: word.y,
+                });
+            });
+
+            setScore(prev => prev + pointsFromWipe);
+            setFloatingScores(prev => [...prev, ...newFloatingScores]);
+            const newScoreIds = newFloatingScores.map(fs => fs.id);
+            setTimeout(() => setFloatingScores(prev => prev.filter(fs => !newScoreIds.includes(fs.id))), 1000);
+
             setIsWiping(true);
             setTimeout(() => {
-                setWords(prev => prev.map(w => w.status === 'falling' ? { ...w, status: 'destroyed' } : w));
+                setWords(prev => prev.map(w => wordsToClear.some(wc => wc.id === w.id) ? { ...w, status: 'destroyed' } : w));
                 setTimeout(() => setWords(prev => prev.filter(w => w.status !== 'destroyed')), 600);
                 setIsWiping(false);
             }, 800);
         } else if (powerUpType === 'shield') {
-            setShieldActive(true);
+            setShieldCharges(prev => prev + 1);
         } else if (powerUpType === 'score-multiplier') {
             setActivePowerUps(prev => [...prev, { type: 'score-multiplier', expiration: Date.now() + POWERUP_DURATIONS.scoreMultiplier }]);
         } else if (powerUpType === 'unify') {
@@ -534,7 +564,7 @@ const App: React.FC = () => {
         } else if (powerUpType === 'frenzy') {
             setActivePowerUps(prev => [...prev, { type: 'frenzy', expiration: Date.now() + POWERUP_DURATIONS.frenzy }]);
         }
-    }, []);
+    }, [words]);
     
     const removeLightningStrike = useCallback((id: number) => {
         setLightningStrikes(prev => prev.filter(strike => strike.id !== id));
@@ -912,8 +942,9 @@ const App: React.FC = () => {
             <BackgroundAnimation isTimeSlowed={isTimeSlowed} difficulty={activeDifficulty} />
             
             <div className="w-full max-w-[90rem] mx-auto flex justify-center items-start gap-8 z-10">
-                <div className="w-64 flex-shrink-0 flex justify-center pt-8">
+                <div className="w-64 flex-shrink-0 flex flex-col items-center pt-8 gap-4">
                     {isGameActive && <ComboIndicator combo={combo} />}
+                    {isGameActive && <ActivePowerUpsDisplay activePowerUps={activePowerUps} />}
                 </div>
 
                 <main className="w-full max-w-4xl flex flex-col items-center">
@@ -929,9 +960,13 @@ const App: React.FC = () => {
                                     <p className="text-green-300 text-4xl font-bold" style={{textShadow: '0 0 8px #4ade80'}}>{level}</p>
                                 </div>
                             </div>
-                            <div className="relative glass-panel px-3 py-1.5 flex items-center space-x-2">
-                                {shieldActive && <ShieldIcon />}
-                                {Array.from({ length: lives }).map((_, i) => (<HeartIcon key={i} />))}
+                            <div className="flex flex-col items-center gap-1">
+                                <div className="h-8 flex items-center justify-center">
+                                    {shieldCharges > 0 && <ShieldDisplay count={shieldCharges} />}
+                                </div>
+                                <div className="relative glass-panel px-3 py-1.5 flex items-center space-x-2">
+                                    {Array.from({ length: lives }).map((_, i) => (<HeartIcon key={i} />))}
+                                </div>
                             </div>
                         </header>
                     )}
