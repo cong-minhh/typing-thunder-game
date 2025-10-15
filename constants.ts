@@ -91,3 +91,8 @@ export const GRADE_THRESHOLDS = {
     D: 100,
     F: 0,
 };
+
+// New Power-up word constants
+export const POWERUP_WORD_VX = 3; // base horizontal speed
+export const POWERUP_WORD_VY = 0.5; // base vertical speed
+export const POWERUP_WORD_MAX_BOUNCES = 2;

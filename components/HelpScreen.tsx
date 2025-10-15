@@ -34,14 +34,16 @@ const HelpScreen: React.FC<HelpScreenProps> = ({ onBack }) => {
                     </HelpSection>
 
                     <HelpSection title="Power-Ups">
-                        <p>Complete words to fill the power-up meters on the right. When a meter is full, you can activate its power-up by pressing the corresponding key.</p>
-                        <p><strong>Slow Time</strong> (<Hotkey>1</Hotkey>): Temporarily slows down the falling speed of all words and the boss timer.</p>
-                        <p><strong>Screen Wipe</strong> (<Hotkey>2</Hotkey>): Instantly destroys all normal falling words on the screen.</p>
-                        <p><strong>Shield</strong> (<Hotkey>3</Hotkey>): Protects you from the next word you miss, saving your life and combo.</p>
-                        <p><strong>Score Boost</strong> (<Hotkey>4</Hotkey>): Doubles all points you earn for a short duration.</p>
-                        <p><strong>Unify</strong> (<Hotkey>5</Hotkey>): Transforms the 10 lowest words into the same single letter, allowing for a rapid clear.</p>
-                        <p><strong>Frenzy</strong> (<Hotkey>6</Hotkey>): For a short time, your completed words will explode, destroying other nearby words.</p>
-                        <p className="mt-4">You can also find power-ups by typing special <span className="rainbow-text font-bold">rainbow-colored words</span> that randomly appear!</p>
+                        <p>Typing words fills the power-up meters on the right. When a meter is full, activate it with its hotkey (<Hotkey>1</Hotkey>-<Hotkey>6</Hotkey>).</p>
+                        <p>Additionally, look out for special <span className="rainbow-text font-bold">ricocheting power-up words</span> that fly in from the sides! Typing one of these will instantly <span className="font-bold text-cyan-400">charge</span> its meter to full.</p>
+                         <ul className="list-disc list-inside ml-4 text-base">
+                            <li><strong>Slow Time</strong> (<Hotkey>1</Hotkey>): Temporarily slows down falling words and the boss timer.</li>
+                            <li><strong>Screen Wipe</strong> (<Hotkey>2</Hotkey>): Instantly destroys all normal falling words.</li>
+                            <li><strong>Shield</strong> (<Hotkey>3</Hotkey>): Protects you from the next word you miss.</li>
+                            <li><strong>Score Boost</strong> (<Hotkey>4</Hotkey>): Doubles all points earned for a short duration.</li>
+                            <li><strong>Unify</strong> (<Hotkey>5</Hotkey>): Transforms the 10 lowest words into a single letter.</li>
+                            <li><strong>Frenzy</strong> (<Hotkey>6</Hotkey>): Completed words explode, destroying nearby words.</li>
+                        </ul>
                     </HelpSection>
                     
                     <HelpSection title="Game Flow">

@@ -4,7 +4,7 @@ import GameScreen from './components/GameScreen';
 import StartScreen from './components/StartScreen';
 import GameOverScreen from './components/GameOverScreen';
 import ComboIndicator from './components/ComboIndicator';
-import { LEVEL_UP_SCORE, WORD_FALL_SPEED_INCREASE, WORD_SPAWN_RATE_DECREASE, DIFFICULTY_PRESETS, POWERUP_THRESHOLDS, POWERUP_DURATIONS, TIMING_WINDOW_MS, MAX_TIMING_BONUS_MULTIPLIER, TIMING_TIERS, WORDS_PER_LEVEL_UNTIL_WAVE, WAVE_WARNING_DURATION_MS, BOSS_HEALTH_BASE, BOSS_HEALTH_PER_LEVEL, BOSS_TIMER_DURATION_MS, BOSS_WORDS_BASE, BOSS_WORDS_PER_LEVEL, BOSS_SLOW_SPAWN_RATE_MS, WAVE_ACCELERATE_DURATION_MS, WAVE_ACCELERATE_END_SPEED_MULTIPLIER, WAVE_ACCELERATE_SPAWN_RATE_MS, WAVE_ACCELERATE_START_SPEED_MULTIPLIER, WAVE_DELUGE_WORD_COUNT, WAVE_DELUGE_SPAWN_RATE_MS, WAVE_DELUGE_SPEED_MULTIPLIER, GRADE_THRESHOLDS } from './constants';
+import { LEVEL_UP_SCORE, WORD_FALL_SPEED_INCREASE, WORD_SPAWN_RATE_DECREASE, DIFFICULTY_PRESETS, POWERUP_THRESHOLDS, POWERUP_DURATIONS, TIMING_WINDOW_MS, MAX_TIMING_BONUS_MULTIPLIER, TIMING_TIERS, WORDS_PER_LEVEL_UNTIL_WAVE, WAVE_WARNING_DURATION_MS, BOSS_HEALTH_BASE, BOSS_HEALTH_PER_LEVEL, BOSS_TIMER_DURATION_MS, BOSS_WORDS_BASE, BOSS_WORDS_PER_LEVEL, BOSS_SLOW_SPAWN_RATE_MS, WAVE_ACCELERATE_DURATION_MS, WAVE_ACCELERATE_END_SPEED_MULTIPLIER, WAVE_ACCELERATE_SPAWN_RATE_MS, WAVE_ACCELERATE_START_SPEED_MULTIPLIER, WAVE_DELUGE_WORD_COUNT, WAVE_DELUGE_SPAWN_RATE_MS, WAVE_DELUGE_SPEED_MULTIPLIER, GRADE_THRESHOLDS, POWERUP_WORD_VX, POWERUP_WORD_VY, POWERUP_WORD_MAX_BOUNCES } from './constants';
 import HeartIcon from './components/UI/HeartIcon';
 import BackgroundAnimation from './components/BackgroundAnimation';
 import PowerUpBar from './components/PowerUpBar';
@@ -180,22 +180,26 @@ const App: React.FC = () => {
         // Random chance to spawn a power-up word
         if (!isWaveWord && Math.random() < POWERUP_SPAWN_CHANCE) {
             const availablePowerUps: { type: PowerUpType; text: string }[] = [
-                { type: 'slow-time', text: 'SLOW' },
-                { type: 'clear-words', text: 'WIPE' },
-                { type: 'shield', text: 'SHIELD' },
-                { type: 'score-multiplier', text: 'BOOST' },
+                { type: 'slow-time', text: 'SLOW' }, { type: 'clear-words', text: 'WIPE' },
+                { type: 'shield', text: 'SHIELD' }, { type: 'score-multiplier', text: 'BOOST' },
+                { type: 'unify', text: 'UNIFY' }, { type: 'frenzy', text: 'FRENZY' }
             ];
             const chosenPowerUp = availablePowerUps[Math.floor(Math.random() * availablePowerUps.length)];
-            const wordWidth = chosenPowerUp.text.length * 15;
-            const spawnX = Math.random() * (gameContainerRef.current.offsetWidth - wordWidth);
-            
+            const gameWidth = gameContainerRef.current.offsetWidth;
+            const gameHeight = gameContainerRef.current.offsetHeight;
+            const spawnFromLeft = Math.random() > 0.5;
+            const wordWidth = chosenPowerUp.text.length * 20; // estimate for text-3xl rainbow
+
             const newWord: Word = {
                 id: Date.now() + Math.random(),
                 text: chosenPowerUp.text,
-                x: Math.max(0, spawnX),
-                y: -20,
+                x: spawnFromLeft ? -wordWidth : gameWidth,
+                y: Math.random() * (gameHeight - 100) + 50,
                 status: 'falling',
                 powerUp: chosenPowerUp.type,
+                vx: (spawnFromLeft ? 1 : -1) * POWERUP_WORD_VX,
+                vy: (Math.random() - 0.5) * POWERUP_WORD_VY * 2,
+                bounces: 0,
             };
             setWords(prev => [...prev, newWord]);
             return;
@@ -261,12 +265,37 @@ const App: React.FC = () => {
 
         setWords(prevWords => {
             const gameHeight = gameContainerRef.current?.offsetHeight ?? 800;
-            const updatedWords = prevWords.map(word => ({ ...word, y: word.y + currentWordFallSpeed })).filter(word => word.status === 'falling');
+            const gameWidth = gameContainerRef.current?.offsetWidth ?? 800;
+            
+            const updatedWords = prevWords.map(word => {
+                if (word.status !== 'falling') return word;
 
-            // Power-up words that fall off screen do not cost a life.
-            const missedWords = updatedWords.filter(word => word.y >= gameHeight && !word.powerUp);
-            if (missedWords.length > 0) {
-                let livesToLose = missedWords.length;
+                if (word.vx !== undefined && word.vy !== undefined && word.bounces !== undefined) {
+                    const newWord = { ...word };
+                    const speedMultiplier = isTimeSlowed ? 0.4 : 1;
+                    newWord.x += newWord.vx * speedMultiplier;
+                    newWord.y += newWord.vy * speedMultiplier;
+                    
+                    const wordWidth = newWord.text.length * 20;
+
+                    if (newWord.bounces < POWERUP_WORD_MAX_BOUNCES) {
+                        if ((newWord.x <= 0 && newWord.vx < 0) || (newWord.x + wordWidth >= gameWidth && newWord.vx > 0)) {
+                            newWord.vx *= -1;
+                            newWord.bounces += 1;
+                        }
+                        if ((newWord.y <= 0 && newWord.vy < 0) || (newWord.y + 30 >= gameHeight && newWord.vy > 0)) {
+                            newWord.vy *= -1;
+                        }
+                    }
+                    return newWord;
+                } else {
+                    return { ...word, y: word.y + currentWordFallSpeed };
+                }
+            });
+
+            const missedNormalWords = updatedWords.filter(w => w.status === 'falling' && !w.powerUp && w.y >= gameHeight);
+            if (missedNormalWords.length > 0) {
+                let livesToLose = missedNormalWords.length;
                 if (shieldActive) {
                     livesToLose -= 1;
                     setShieldActive(false);
@@ -277,7 +306,16 @@ const App: React.FC = () => {
                 }
             }
 
-            return prevWords.map(word => ({ ...word, y: word.y + currentWordFallSpeed })).filter(word => word.y < gameHeight || word.status === 'destroyed');
+            return updatedWords.filter(word => {
+                if (word.status === 'destroyed') return true;
+                if (word.powerUp) {
+                    if (word.bounces !== undefined && word.bounces >= POWERUP_WORD_MAX_BOUNCES) {
+                         return word.x > -200 && word.x < gameWidth + 200 && word.y > -100 && word.y < gameHeight + 100;
+                    }
+                    return true;
+                }
+                return word.y < gameHeight;
+            });
         });
 
         if (Date.now() - lastSpawnTime.current > wordSpawnRate) {
@@ -295,7 +333,7 @@ const App: React.FC = () => {
         }
         
         animationFrameId.current = requestAnimationFrame(gameLoop);
-    }, [gameStatus, spawnWord, wordFallSpeed, wordSpawnRate, isLosingLife, levelPhase, waveState, shieldActive, resetCombo]);
+    }, [gameStatus, spawnWord, wordFallSpeed, wordSpawnRate, isLosingLife, levelPhase, waveState, shieldActive, resetCombo, isTimeSlowed]);
 
     useEffect(() => {
         if (lives < prevLivesRef.current && gameStatus === GameStatus.Playing) {
@@ -665,15 +703,18 @@ const App: React.FC = () => {
             // Prioritize the word lowest on the screen (highest y value).
             const wordToComplete = allMatchedWords.sort((a, b) => b.y - a.y)[0];
 
-            if (wordToComplete.powerUp) { // It's a power-up word
-                activatePowerUp(wordToComplete.powerUp);
+            if (wordToComplete.powerUp) {
+                const stateKey = powerUpTypeToStateKey[wordToComplete.powerUp];
+                setPowerUpProgress(prev => ({ ...prev, [stateKey]: POWERUP_THRESHOLDS[stateKey] }));
+                setPowerUpsReady(prev => ({ ...prev, [stateKey]: true }));
+
                 setWords(prev => prev.map(w => w.id === wordToComplete.id ? { ...w, status: 'destroyed' } : w));
                 setTimeout(() => setWords(prev => prev.filter(w => w.id !== wordToComplete.id)), 600);
                 resetCombo();
 
                 setFloatingScores(prev => [...prev, {
                     id: Date.now(), base: 0, bonus: 0,
-                    timingLabel: { text: `${wordToComplete.text}!`, colorClass: 'text-cyan-400' },
+                    timingLabel: { text: `CHARGED!`, colorClass: 'text-cyan-400' },
                     x: wordToComplete.x, y: wordToComplete.y
                 }]);
                 setTypedInput('');

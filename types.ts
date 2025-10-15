@@ -40,6 +40,9 @@ export interface Word {
     powerUp?: PowerUpType;
     isWaveWord?: boolean;
     isTransformed?: boolean;
+    vx?: number;
+    vy?: number;
+    bounces?: number;
 }
 
 export interface FloatingScore {

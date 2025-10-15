@@ -20,15 +20,15 @@ const FallingWord: React.FC<FallingWordProps> = ({ word, typedInput }) => {
     
     const wordStyle: React.CSSProperties = {
         position: 'absolute',
-        left: `${word.x}px`,
+        left: 0,
         top: 0,
-        transform: `translateY(${word.y}px)`,
+        transform: `translate(${word.x}px, ${word.y}px)`,
         textShadow: isTyping ? '0 0 8px #0ff' : 
                      isPowerUp ? '0 0 8px #fff' : 
                      isWaveWord ? '0 0 8px #ef4444' : 
                      isTransformed ? '0 0 15px #fff, 0 0 25px #fff' : '0 0 5px #000',
         opacity: isDestroyed ? 0 : 1,
-        transition: 'opacity 0.1s linear',
+        transition: 'opacity 0.1s linear, transform 0.05s linear', // smooth transform for bouncing
     };
 
     const typedPartSpans = typedPart.split('').map((char, index) => (
@@ -45,7 +45,7 @@ const FallingWord: React.FC<FallingWordProps> = ({ word, typedInput }) => {
         <div style={wordStyle} className="relative">
             {/* The visible word text */}
             <div
-                className={`select-none text-2xl font-semibold transition-colors duration-150 ${
+                className={`select-none text-2xl font-semibold transition-colors duration-150 whitespace-nowrap ${
                     isPowerUp ? 'rainbow-text font-extrabold text-3xl' :
                     isWaveWord ? 'text-red-400' :
                     isTransformed ? 'text-white animate-pulse' :
