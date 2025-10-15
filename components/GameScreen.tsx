@@ -1,7 +1,8 @@
 import React, { useRef, useEffect } from 'react';
-import { Word } from '../types';
+import { Word, FloatingScore } from '../types';
 import FallingWord from './FallingWord';
 import HeartIcon from './UI/HeartIcon';
+import ComboIndicator from './ComboIndicator';
 
 interface GameScreenProps {
     words: Word[];
@@ -13,6 +14,8 @@ interface GameScreenProps {
     gameContainerRef: React.RefObject<HTMLDivElement>;
     showLevelUp: boolean;
     inputStatus: 'idle' | 'correct' | 'incorrect';
+    combo: number;
+    floatingScores: FloatingScore[];
 }
 
 const GameScreen: React.FC<GameScreenProps> = ({
@@ -25,6 +28,8 @@ const GameScreen: React.FC<GameScreenProps> = ({
     gameContainerRef,
     showLevelUp,
     inputStatus,
+    combo,
+    floatingScores,
 }) => {
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -43,7 +48,7 @@ const GameScreen: React.FC<GameScreenProps> = ({
             {/* Game Header */}
             <div className="absolute top-0 left-0 right-0 p-4 bg-slate-900/50 backdrop-blur-sm flex justify-between items-center z-10 border-b border-cyan-400/30">
                 <div className="flex items-center space-x-4">
-                    <h2 className="text-xl font-bold">Score: <span key={score} className="text-cyan-400 inline-block animate-score-pop">{score}</span></h2>
+                    <h2 className="text-xl font-bold">Score: <span key={score} className="text-cyan-400 w-24 inline-block animate-score-pop">{score}</span></h2>
                     <h2 className="text-xl font-bold">Level: <span className="text-green-400">{level}</span></h2>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -53,6 +58,9 @@ const GameScreen: React.FC<GameScreenProps> = ({
                 </div>
             </div>
 
+            {/* Combo Indicator */}
+            <ComboIndicator combo={combo} />
+
             {/* Level Up Animation */}
             {showLevelUp && (
                 <div className="absolute inset-0 flex items-center justify-center z-50 pointer-events-none">
@@ -61,6 +69,17 @@ const GameScreen: React.FC<GameScreenProps> = ({
                     </h1>
                 </div>
             )}
+
+            {/* Floating Scores */}
+            {floatingScores.map(fs => (
+                <div 
+                    key={fs.id} 
+                    className="absolute text-yellow-400 text-2xl font-bold animate-float-up"
+                    style={{ left: `${fs.x}px`, top: `${fs.y}px` }}
+                >
+                    +{fs.value}
+                </div>
+            ))}
 
             {/* Falling Words */}
             <div className="absolute inset-0">

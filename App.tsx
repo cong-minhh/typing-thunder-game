@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { GameStatus, Word, Difficulty } from './types';
+import { GameStatus, Word, Difficulty, FloatingScore } from './types';
 import { fetchWords } from './services/geminiService';
 import GameScreen from './components/GameScreen';
 import StartScreen from './components/StartScreen';
@@ -20,6 +20,8 @@ const App: React.FC = () => {
     const [showLevelUp, setShowLevelUp] = useState<boolean>(false);
     const [inputStatus, setInputStatus] = useState<'idle' | 'correct' | 'incorrect'>('idle');
     const [difficulty, setDifficulty] = useState<Difficulty>('Medium');
+    const [combo, setCombo] = useState<number>(0);
+    const [floatingScores, setFloatingScores] = useState<FloatingScore[]>([]);
 
     const animationFrameId = useRef<number | null>(null);
     const lastSpawnTime = useRef<number>(Date.now());
@@ -38,6 +40,8 @@ const App: React.FC = () => {
         setLives(INITIAL_LIVES);
         setLevel(1);
         setError(null);
+        setCombo(0);
+        setFloatingScores([]);
         lastSpawnTime.current = Date.now();
     }, []);
 
@@ -112,6 +116,7 @@ const App: React.FC = () => {
                     }
                     return newLives;
                 });
+                setCombo(0); // Reset combo on missed word
             }
 
             return prevWords.map(word => ({
@@ -202,7 +207,31 @@ const App: React.FC = () => {
 
         const matchedWord = words.find(word => word.status === 'falling' && word.text === trimmedInput);
         if (matchedWord) {
-            setScore(prev => prev + matchedWord.text.length);
+            const gameHeight = gameContainerRef.current?.offsetHeight ?? 800;
+            const basePoints = matchedWord.text.length;
+            
+            // Position bonus: More points for words higher up.
+            const positionMultiplier = 1 - (matchedWord.y / gameHeight);
+            const pointsFromPosition = Math.ceil(basePoints * Math.max(0.1, positionMultiplier));
+            
+            // Combo bonus: Multiplier increases with combo.
+            const comboBonusMultiplier = 1 + (combo * 0.1);
+            const finalPoints = Math.round(pointsFromPosition * comboBonusMultiplier);
+
+            setScore(prev => prev + finalPoints);
+            setCombo(prev => prev + 1);
+
+            const newFloatingScore: FloatingScore = {
+                id: Date.now(),
+                value: finalPoints,
+                x: matchedWord.x,
+                y: matchedWord.y,
+            };
+            setFloatingScores(prev => [...prev, newFloatingScore]);
+            setTimeout(() => {
+                setFloatingScores(prev => prev.filter(fs => fs.id !== newFloatingScore.id));
+            }, 1000);
+
             setWords(prevWords => prevWords.map(w => w.id === matchedWord.id ? { ...w, status: 'destroyed' } : w));
             setTypedInput('');
             
@@ -210,7 +239,7 @@ const App: React.FC = () => {
                 setWords(prevWords => prevWords.filter(w => w.id !== matchedWord.id));
             }, 600);
         }
-    }, [typedInput, words]);
+    }, [typedInput, words, combo]);
 
     useEffect(() => {
         return () => {
@@ -240,6 +269,8 @@ const App: React.FC = () => {
                         gameContainerRef={gameContainerRef}
                         showLevelUp={showLevelUp}
                         inputStatus={inputStatus}
+                        combo={combo}
+                        floatingScores={floatingScores}
                     />
                 );
             case GameStatus.GameOver:

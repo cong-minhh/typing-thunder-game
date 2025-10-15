@@ -13,3 +13,10 @@ export enum GameStatus {
 }
 
 export type Difficulty = 'Easy' | 'Medium' | 'Hard';
+
+export interface FloatingScore {
+  id: number;
+  value: number;
+  x: number;
+  y: number;
+}
