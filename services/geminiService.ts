@@ -26,42 +26,43 @@ const getPromptForLevel = (level: number): string => {
 };
 
 export const fetchWords = async (level: number): Promise<string[]> => {
-    try {
-        const prompt = getPromptForLevel(level);
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        words: {
-                            type: Type.ARRAY,
-                            items: {
-                                type: Type.STRING,
-                                description: "A common English word"
-                            }
-                        }
-                    },
-                    required: ["words"]
-                },
-            },
-        });
+    // try {
+    //     const prompt = getPromptForLevel(level);
+    //     const response = await ai.models.generateContent({
+    //         model: "gemini-2.5-flash",
+    //         contents: prompt,
+    //         config: {
+    //             responseMimeType: "application/json",
+    //             responseSchema: {
+    //                 type: Type.OBJECT,
+    //                 properties: {
+    //                     words: {
+    //                         type: Type.ARRAY,
+    //                         items: {
+    //                             type: Type.STRING,
+    //                             description: "A common English word"
+    //                         }
+    //                     }
+    //                 },
+    //                 required: ["words"]
+    //             },
+    //         },
+    //     });
 
-        const jsonString = response.text;
-        const parsed = JSON.parse(jsonString);
+    //     const jsonString = response.text;
+    //     const parsed = JSON.parse(jsonString);
 
-        if (parsed && Array.isArray(parsed.words)) {
-            return parsed.words;
-        } else {
-            console.error("Unexpected JSON structure:", parsed);
-            return ["error", "parsing", "json", "response"];
-        }
+    //     if (parsed && Array.isArray(parsed.words)) {
+    //         return parsed.words;
+    //     } else {
+    //         console.error("Unexpected JSON structure:", parsed);
+    //         return ["error", "parsing", "json", "response"];
+    //     }
 
-    } catch (error) {
-        console.error("Error fetching words from Gemini API:", error);
-        // Provide fallback words in case of an API error
-        return ["hello", "world", "react", "typescript", "game", "speed", "typing", "thunder", "falling", "words"];
-    }
+    // } catch (error) {
+    //     console.error("Error fetching words from Gemini API:", error);
+    //     // Provide fallback words in case of an API error
+    //     return ["hello", "world", "react", "typescript", "game", "speed", "typing", "thunder", "falling", "words"];
+    // }
+    return ["a", "a", "a", "a", "a", "a", "a", "a", "a", "a"];
 };
