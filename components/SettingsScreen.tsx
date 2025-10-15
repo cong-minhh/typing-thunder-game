@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { GameSettings, Difficulty } from '../types';
 import { DIFFICULTY_PRESETS, CUSTOM_SETTINGS_RANGES } from '../constants';
 
@@ -30,9 +30,22 @@ const SettingSlider: React.FC<{
     </div>
 );
 
+const areSettingsEqual = (a: GameSettings, b: GameSettings) => {
+    return a.startingLives === b.startingLives &&
+           a.fallSpeedStart === b.fallSpeedStart &&
+           a.spawnRateStart === b.spawnRateStart &&
+           a.hardcoreMode === b.hardcoreMode;
+};
 
 const SettingsScreen: React.FC<SettingsScreenProps> = ({ initialSettings, onStartGame, onBack }) => {
     const [settings, setSettings] = useState<GameSettings>(initialSettings);
+    
+    const activePreset = useMemo<Difficulty | null>(() => {
+        if (areSettingsEqual(settings, DIFFICULTY_PRESETS.Easy)) return 'Easy';
+        if (areSettingsEqual(settings, DIFFICULTY_PRESETS.Medium)) return 'Medium';
+        if (areSettingsEqual(settings, DIFFICULTY_PRESETS.Hard)) return 'Hard';
+        return null;
+    }, [settings]);
 
     const handlePreset = (difficulty: Difficulty) => {
         setSettings(DIFFICULTY_PRESETS[difficulty]);
@@ -44,9 +57,9 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ initialSettings, onStar
                 <h2 className="text-5xl font-extrabold mb-6 text-cyan-300 text-center">Custom Game</h2>
                 <p className="text-center text-slate-400 mb-4">Load a preset or create your own challenge.</p>
                 <div className="flex justify-center gap-4 mb-6">
-                    <button onClick={() => handlePreset('Easy')} className="btn btn-green flex-1">Easy</button>
-                    <button onClick={() => handlePreset('Medium')} className="btn btn-yellow flex-1">Medium</button>
-                    <button onClick={() => handlePreset('Hard')} className="btn btn-red flex-1">Hard</button>
+                    <button onClick={() => handlePreset('Easy')} className={`btn btn-green flex-1 ${activePreset === 'Easy' ? 'btn-preset-active' : ''}`}>Easy</button>
+                    <button onClick={() => handlePreset('Medium')} className={`btn btn-yellow flex-1 ${activePreset === 'Medium' ? 'btn-preset-active' : ''}`}>Medium</button>
+                    <button onClick={() => handlePreset('Hard')} className={`btn btn-red flex-1 ${activePreset === 'Hard' ? 'btn-preset-active' : ''}`}>Hard</button>
                 </div>
 
                 <hr className="border-slate-600/50 my-4" />
