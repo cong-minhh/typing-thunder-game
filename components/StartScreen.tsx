@@ -5,9 +5,10 @@ interface StartScreenProps {
     onStart: (difficulty: Difficulty) => void;
     onCustomGame: () => void;
     onHelp: () => void;
+    onLeaderboard: () => void;
 }
 
-const StartScreen: React.FC<StartScreenProps> = ({ onStart, onCustomGame, onHelp }) => {
+const StartScreen: React.FC<StartScreenProps> = ({ onStart, onCustomGame, onHelp, onLeaderboard }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty | null>(null);
 
@@ -60,6 +61,13 @@ const StartScreen: React.FC<StartScreenProps> = ({ onStart, onCustomGame, onHelp
                     className="px-8 py-4 bg-sky-500 text-slate-900 font-bold text-xl rounded-lg shadow-lg hover:scale-105 transition-transform duration-300 disabled:bg-slate-600 disabled:cursor-not-allowed w-full sm:w-auto"
                 >
                     How to Play
+                </button>
+                 <button
+                    onClick={onLeaderboard}
+                    disabled={isLoading}
+                    className="px-8 py-4 bg-violet-500 text-slate-900 font-bold text-xl rounded-lg shadow-lg hover:scale-105 transition-transform duration-300 disabled:bg-slate-600 disabled:cursor-not-allowed w-full sm:w-auto"
+                >
+                    Leaderboard
                 </button>
             </div>
         </div>

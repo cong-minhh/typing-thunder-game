@@ -74,3 +74,14 @@ export const BOSS_TIMER_DURATION_MS = 20000;
 export const BOSS_WORDS_BASE = 5;
 export const BOSS_WORDS_PER_LEVEL = 1;
 export const BOSS_SLOW_SPAWN_RATE_MS = 3000;
+
+// Leaderboard and Grading
+export const LEADERBOARD_MAX_SIZE = 10;
+export const GRADE_THRESHOLDS = {
+    S: 400, // A high bar for exceptional play
+    A: 300,
+    B: 200,
+    C: 120,
+    D: 50,
+    F: 0,
+};

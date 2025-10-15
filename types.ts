@@ -5,6 +5,7 @@ export enum GameStatus {
     Playing,
     Paused,
     GameOver,
+    Leaderboard,
 }
 
 export enum LevelPhase {
@@ -60,4 +61,28 @@ export interface BossState {
     maxHealth: number;
     timer: number;
     maxTimer: number;
+}
+
+export interface GameStats {
+    startTime: number;
+    totalMistypes: number;
+    totalCharsCompleted: number;
+    longestCombo: number;
+    // For post-game calculation
+    wpm: number;
+    accuracy: number;
+    grade: string;
+}
+
+export interface LeaderboardEntry {
+    id: string;
+    name: string;
+    score: number;
+    grade: string;
+    level: number;
+    wpm: number;
+    accuracy: number;
+    longestCombo: number;
+    difficulty: Difficulty;
+    timestamp: number;
 }

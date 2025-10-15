@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { GameStatus, Word, Difficulty, FloatingScore, PowerUpType, ActivePowerUp, LevelPhase, BossState, GameSettings } from './types';
+import { GameStatus, Word, Difficulty, FloatingScore, PowerUpType, ActivePowerUp, LevelPhase, BossState, GameSettings, GameStats, LeaderboardEntry } from './types';
 import GameScreen from './components/GameScreen';
 import StartScreen from './components/StartScreen';
 import GameOverScreen from './components/GameOverScreen';
 import ComboIndicator from './components/ComboIndicator';
-import { LEVEL_UP_SCORE, WORD_FALL_SPEED_INCREASE, WORD_SPAWN_RATE_DECREASE, DIFFICULTY_PRESETS, POWERUP_THRESHOLDS, POWERUP_DURATIONS, TIMING_WINDOW_MS, MAX_TIMING_BONUS_MULTIPLIER, TIMING_TIERS, WORDS_PER_LEVEL_UNTIL_WAVE, WAVE_WARNING_DURATION_MS, BOSS_HEALTH_BASE, BOSS_HEALTH_PER_LEVEL, BOSS_TIMER_DURATION_MS, BOSS_WORDS_BASE, BOSS_WORDS_PER_LEVEL, BOSS_SLOW_SPAWN_RATE_MS, WAVE_ACCELERATE_DURATION_MS, WAVE_ACCELERATE_END_SPEED_MULTIPLIER, WAVE_ACCELERATE_SPAWN_RATE_MS, WAVE_ACCELERATE_START_SPEED_MULTIPLIER, WAVE_DELUGE_WORD_COUNT, WAVE_DELUGE_SPAWN_RATE_MS, WAVE_DELUGE_SPEED_MULTIPLIER } from './constants';
+import { LEVEL_UP_SCORE, WORD_FALL_SPEED_INCREASE, WORD_SPAWN_RATE_DECREASE, DIFFICULTY_PRESETS, POWERUP_THRESHOLDS, POWERUP_DURATIONS, TIMING_WINDOW_MS, MAX_TIMING_BONUS_MULTIPLIER, TIMING_TIERS, WORDS_PER_LEVEL_UNTIL_WAVE, WAVE_WARNING_DURATION_MS, BOSS_HEALTH_BASE, BOSS_HEALTH_PER_LEVEL, BOSS_TIMER_DURATION_MS, BOSS_WORDS_BASE, BOSS_WORDS_PER_LEVEL, BOSS_SLOW_SPAWN_RATE_MS, WAVE_ACCELERATE_DURATION_MS, WAVE_ACCELERATE_END_SPEED_MULTIPLIER, WAVE_ACCELERATE_SPAWN_RATE_MS, WAVE_ACCELERATE_START_SPEED_MULTIPLIER, WAVE_DELUGE_WORD_COUNT, WAVE_DELUGE_SPAWN_RATE_MS, WAVE_DELUGE_SPEED_MULTIPLIER, GRADE_THRESHOLDS } from './constants';
 import HeartIcon from './components/UI/HeartIcon';
 import BackgroundAnimation from './components/BackgroundAnimation';
 import PowerUpBar from './components/PowerUpBar';
@@ -18,6 +18,8 @@ import AudioManager from './components/AudioManager';
 import SettingsScreen from './components/SettingsScreen';
 import HelpScreen from './components/HelpScreen';
 import ShieldIcon from './components/UI/ShieldIcon';
+import { leaderboardService } from './services/leaderboardService';
+import LeaderboardScreen from './components/LeaderboardScreen';
 
 const POWERUP_SPAWN_CHANCE = 0.05; // 5% chance
 
@@ -27,6 +29,12 @@ const powerUpTypeToStateKey: { [key in PowerUpType]: keyof typeof POWERUP_THRESH
     'shield': 'shield',
     'score-multiplier': 'scoreMultiplier'
 };
+
+const initialGameStats: GameStats = {
+    startTime: 0, totalMistypes: 0, totalCharsCompleted: 0, longestCombo: 0,
+    wpm: 0, accuracy: 0, grade: 'F',
+};
+
 
 const App: React.FC = () => {
     const [gameStatus, setGameStatus] = useState<GameStatus>(GameStatus.Start);
@@ -47,9 +55,10 @@ const App: React.FC = () => {
     const [isWiping, setIsWiping] = useState(false);
     const [isLosingLife, setIsLosingLife] = useState(false);
     const [lastCompletionTime, setLastCompletionTime] = useState<number | null>(null);
-    const [difficultyForVisuals, setDifficultyForVisuals] = useState<Difficulty | null>(null);
+    const [activeDifficulty, setActiveDifficulty] = useState<Difficulty>('Medium');
     const [shieldActive, setShieldActive] = useState(false);
-
+    const [gameStats, setGameStats] = useState<GameStats>(initialGameStats);
+    const [lastSubmittedScoreId, setLastSubmittedScoreId] = useState<string | null>(null);
 
     // New state for waves and bosses
     const [levelPhase, setLevelPhase] = useState<LevelPhase>(LevelPhase.Normal);
@@ -109,6 +118,7 @@ const App: React.FC = () => {
         setBossState(null);
         setShowLevelClear(false);
         setWaveState({ startTime: 0, wordsSpawned: 0 });
+        setGameStats({ ...initialGameStats, startTime: Date.now() });
         if (bossTimerInterval.current) clearInterval(bossTimerInterval.current);
         lastSpawnTime.current = Date.now();
     }, []);
@@ -130,17 +140,13 @@ const App: React.FC = () => {
         const newSettings = DIFFICULTY_PRESETS[difficulty];
         setGameSettings(newSettings);
         resetGameState(newSettings);
-        setDifficultyForVisuals(difficulty);
+        setActiveDifficulty(difficulty);
         beginPlaying(difficulty);
     }, [resetGameState, beginPlaying]);
     
-    const handleOpenSettings = () => {
-        setGameStatus(GameStatus.Settings);
-    };
-
-    const handleOpenHelp = () => {
-        setGameStatus(GameStatus.Help);
-    };
+    const handleOpenSettings = () => setGameStatus(GameStatus.Settings);
+    const handleOpenHelp = () => setGameStatus(GameStatus.Help);
+    const handleOpenLeaderboard = () => setGameStatus(GameStatus.Leaderboard);
 
     const handleStartCustomGame = useCallback((settings: GameSettings) => {
         setGameSettings(settings);
@@ -152,7 +158,7 @@ const App: React.FC = () => {
         } else if (settings.spawnRateStart >= 1800 && settings.fallSpeedStart <= 0.5) {
             difficultyForWords = 'Easy';
         }
-        setDifficultyForVisuals(difficultyForWords);
+        setActiveDifficulty(difficultyForWords);
         beginPlaying(difficultyForWords);
     }, [resetGameState, beginPlaying]);
 
@@ -402,7 +408,27 @@ const App: React.FC = () => {
         return () => { if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current); };
     }, [gameStatus, gameLoop]);
 
-    useEffect(() => { if (lives <= 0) setGameStatus(GameStatus.GameOver); }, [lives]);
+    const calculateFinalStats = useCallback(() => {
+        const { startTime, totalCharsCompleted, totalMistypes, longestCombo } = gameStats;
+        const durationSeconds = (Date.now() - startTime) / 1000;
+        
+        const wpm = durationSeconds > 0 ? Math.round((totalCharsCompleted / 5) / (durationSeconds / 60)) : 0;
+        const accuracy = totalCharsCompleted + totalMistypes > 0 ? Math.round((totalCharsCompleted / (totalCharsCompleted + totalMistypes)) * 100) : 100;
+        
+        // Weighted score for grading
+        const gradeScore = (wpm * 1.5) + (accuracy * 2) + (longestCombo * 5);
+        const grade = Object.entries(GRADE_THRESHOLDS).find(([, threshold]) => gradeScore >= threshold)?.[0] || 'F';
+
+        setGameStats(prev => ({ ...prev, wpm, accuracy, grade }));
+    }, [gameStats]);
+
+    useEffect(() => {
+        if (lives <= 0 && gameStatus === GameStatus.Playing) {
+            calculateFinalStats();
+            setGameStatus(GameStatus.GameOver);
+        }
+    }, [lives, gameStatus, calculateFinalStats]);
+
     useEffect(() => { if (level > 1 && gameStatus === GameStatus.Playing && levelPhase === LevelPhase.Normal) {
             setShowLevelUp(true);
             setTimeout(() => setShowLevelUp(false), 1500);
@@ -446,10 +472,12 @@ const App: React.FC = () => {
         const newFloatingScores: FloatingScore[] = [];
         const idsToDestroy = new Set<number>();
         let regularWordsCleared = 0;
+        let charsInCompletedWords = 0;
 
         matchedWords.forEach(matchedWord => {
             idsToDestroy.add(matchedWord.id);
             regularWordsCleared++;
+            charsInCompletedWords += matchedWord.text.length;
             const baseScore = matchedWord.text.length;
             const finalPoints = Math.round(baseScore * timingBonusMultiplier * scoreMultiplier);
             totalPointsGained += finalPoints;
@@ -466,6 +494,12 @@ const App: React.FC = () => {
         if (regularWordsCleared > 0 && levelPhase !== LevelPhase.Boss) {
             setWordsClearedThisLevel(prev => prev + regularWordsCleared);
         }
+        
+        setGameStats(prev => ({
+            ...prev,
+            totalCharsCompleted: prev.totalCharsCompleted + charsInCompletedWords,
+            longestCombo: Math.max(prev.longestCombo, combo + 1),
+        }));
         
         if (regularWordsCleared > 0) {
             const nextProgress = { ...powerUpProgress };
@@ -516,6 +550,7 @@ const App: React.FC = () => {
                 const points = (currentBossWord.length || 5) * 5 * (isScoreBoosted ? 2 : 1);
                 setScore(s => s + points);
                 setCombo(prev => prev + 1);
+                setGameStats(prev => ({ ...prev, longestCombo: Math.max(prev.longestCombo, combo + 1), totalCharsCompleted: prev.totalCharsCompleted + currentBossWord.length }));
                 setLastCompletionTime(Date.now());
 
                 if (newHealth <= 0) {
@@ -566,6 +601,9 @@ const App: React.FC = () => {
             } else {
                 isCorrectPrefix = words.some(word => word.status === 'falling' && word.text.toLowerCase().startsWith(lowercasedValue));
             }
+            if (!isCorrectPrefix) {
+                setGameStats(prev => ({ ...prev, totalMistypes: prev.totalMistypes + 1}));
+            }
             setInputStatus(isCorrectPrefix ? 'correct' : 'incorrect');
             inputStatusTimeout.current = window.setTimeout(() => setInputStatus('idle'), 300);
         } else {
@@ -606,18 +644,34 @@ const App: React.FC = () => {
     useEffect(() => { return () => { if (inputStatusTimeout.current) clearTimeout(inputStatusTimeout.current); }; }, []);
 
     const returnToStart = () => {
-        if (gameStatus === GameStatus.GameOver || gameStatus === GameStatus.Paused || gameStatus === GameStatus.Help) {
-            resetGameState(gameSettings);
-        }
-        setDifficultyForVisuals(null);
+        resetGameState(gameSettings);
         setGameStatus(GameStatus.Start);
+    };
+
+    const handleSubmitScore = (name: string) => {
+        const newEntry: LeaderboardEntry = {
+            id: `${Date.now()}-${name}`,
+            name: name || 'Anonymous',
+            score,
+            grade: gameStats.grade,
+            level,
+            wpm: gameStats.wpm,
+            accuracy: gameStats.accuracy,
+            longestCombo: gameStats.longestCombo,
+            difficulty: activeDifficulty,
+            timestamp: Date.now(),
+        };
+        leaderboardService.addScore(newEntry);
+        setLastSubmittedScoreId(newEntry.id);
+        setGameStatus(GameStatus.Leaderboard);
     };
 
     const renderContent = () => {
         switch (gameStatus) {
-            case GameStatus.Start: return <StartScreen onStart={handleStartPreset} onCustomGame={handleOpenSettings} onHelp={handleOpenHelp} />;
+            case GameStatus.Start: return <StartScreen onStart={handleStartPreset} onCustomGame={handleOpenSettings} onHelp={handleOpenHelp} onLeaderboard={handleOpenLeaderboard} />;
             case GameStatus.Settings: return <SettingsScreen initialSettings={gameSettings} onStartGame={handleStartCustomGame} onBack={returnToStart} />;
             case GameStatus.Help: return <HelpScreen onBack={returnToStart} />;
+            case GameStatus.Leaderboard: return <LeaderboardScreen onBack={returnToStart} newScoreId={lastSubmittedScoreId} />;
             case GameStatus.Playing:
             case GameStatus.Paused:
                 return (
@@ -629,7 +683,7 @@ const App: React.FC = () => {
                         isScoreBoosted={isScoreBoosted}
                     />
                 );
-            case GameStatus.GameOver: return <GameOverScreen score={score} onRestart={returnToStart} />;
+            case GameStatus.GameOver: return <GameOverScreen score={score} stats={gameStats} difficulty={activeDifficulty} onSubmitScore={handleSubmitScore} onRestart={handleStartPreset} onViewLeaderboard={handleOpenLeaderboard} onMainMenu={returnToStart} />;
             default: return null;
         }
     };
@@ -638,13 +692,13 @@ const App: React.FC = () => {
         Easy: 'bg-sky-900',
         Medium: 'bg-slate-900',
         Hard: 'bg-gray-950',
-    }[difficultyForVisuals ?? 'Medium'] || 'bg-slate-900';
+    }[activeDifficulty] || 'bg-slate-900';
 
 
     return (
         <div className={`relative flex flex-col items-center justify-center min-h-screen font-mono p-4 overflow-hidden transition-colors duration-1000 ${backgroundClass}`}>
             <AudioManager gameStatus={gameStatus} levelPhase={levelPhase} />
-            <BackgroundAnimation isTimeSlowed={isTimeSlowed} difficulty={difficultyForVisuals} />
+            <BackgroundAnimation isTimeSlowed={isTimeSlowed} difficulty={activeDifficulty} />
             <div className="relative z-10 flex flex-col items-center w-full">
                 <h1 className="text-5xl font-bold text-cyan-400 mb-2 tracking-widest" style={{ textShadow: '0 0 10px #0ff' }}>TYPING THUNDER</h1>
                 <div className="w-full max-w-6xl mx-auto flex justify-center items-start gap-8">
