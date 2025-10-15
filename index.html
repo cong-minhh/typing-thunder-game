@@ -113,6 +113,23 @@
   .animate-trail-fade-out {
     animation: trail-fade-out 0.7s ease-out forwards;
   }
+  @keyframes base-score-pop {
+    0% { transform: scale(0.8); opacity: 0; }
+    50% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  .animate-base-score-pop {
+    display: inline-block;
+    animation: base-score-pop 0.4s ease-out;
+  }
+  @keyframes bonus-score-slide-in {
+    0% { transform: translateX(20px) scale(0.8); opacity: 0; }
+    100% { transform: translateX(0) scale(1); opacity: 1; }
+  }
+  .animate-bonus-score-slide-in {
+    display: inline-block;
+    animation: bonus-score-slide-in 0.4s 0.1s ease-out backwards;
+  }
 </style>
 </head>
 <body class="bg-slate-900 text-white">

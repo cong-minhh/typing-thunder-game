@@ -99,11 +99,11 @@ const GameScreen: React.FC<GameScreenProps> = ({
                     className="absolute text-2xl font-bold animate-float-up flex items-baseline"
                     style={{ left: `${fs.x}px`, top: `${fs.y}px`, textShadow: 'none' }}
                 >
-                    <span className="text-yellow-400" style={{ textShadow: '0 0 8px #facc15' }}>
+                    <span className="text-yellow-400 animate-base-score-pop" style={{ textShadow: '0 0 8px #facc15' }}>
                         +{fs.base}
                     </span>
                     {fs.bonus > 0 && (
-                        <span className="text-green-400 text-xl ml-2" style={{ textShadow: '0 0 8px #4ade80' }}>
+                        <span className="text-green-400 text-xl ml-2 animate-bonus-score-slide-in" style={{ textShadow: '0 0 8px #4ade80' }}>
                             +{fs.bonus}
                         </span>
                     )}
