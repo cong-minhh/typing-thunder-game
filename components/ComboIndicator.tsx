@@ -13,18 +13,15 @@ const ComboIndicator: React.FC<ComboIndicatorProps> = ({ combo }) => {
         let colorClass = 'text-yellow-400';
         let shadowColor = 'rgba(250, 204, 21, 0.7)';
         let glowAnimation = '';
-        let heartbeatClass = 'animate-heartbeat-slow';
         let scale = Math.min(2.5, 1 + combo * 0.05);
 
         if (combo >= 20) {
             colorClass = 'text-red-500';
             shadowColor = 'rgba(239, 68, 68, 0.8)';
             glowAnimation = 'animate-combo-glow-red';
-            heartbeatClass = 'animate-heartbeat-fast';
         } else if (combo >= 10) {
             colorClass = 'text-orange-500';
             shadowColor = 'rgba(249, 115, 22, 0.7)';
-            heartbeatClass = 'animate-heartbeat-medium';
         } else if (combo >= 5) {
             colorClass = 'text-amber-400';
             shadowColor = 'rgba(251, 191, 36, 0.7)';
@@ -34,16 +31,15 @@ const ComboIndicator: React.FC<ComboIndicatorProps> = ({ combo }) => {
             colorClass,
             shadowColor,
             glowAnimation,
-            heartbeatClass,
             scale,
         };
     };
 
-    const { colorClass, shadowColor, glowAnimation, heartbeatClass, scale } = getComboStyle();
+    const { colorClass, shadowColor, glowAnimation, scale } = getComboStyle();
 
     return (
         <div 
-            className={`flex flex-col items-center justify-center pointer-events-none z-20 transition-transform duration-300 ${heartbeatClass}`}
+            className={`flex flex-col items-center justify-center pointer-events-none z-20 transition-transform duration-300 animate-shrink-pulse`}
         >
             <div key={combo} className="animate-combo-pop">
                 <span 
