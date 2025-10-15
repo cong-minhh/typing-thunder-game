@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { GameStatus, Word, Difficulty, FloatingScore, PowerUpType, ActivePowerUp } from './types';
-import { fetchWords } from './services/geminiService';
 import GameScreen from './components/GameScreen';
 import StartScreen from './components/StartScreen';
 import GameOverScreen from './components/GameOverScreen';
@@ -9,6 +8,9 @@ import { INITIAL_LIVES, LEVEL_UP_SCORE, WORD_FALL_SPEED_INCREASE, WORD_SPAWN_RAT
 import HeartIcon from './components/UI/HeartIcon';
 import BackgroundAnimation from './components/BackgroundAnimation';
 import PowerUpBar from './components/PowerUpBar';
+import { EASY_WORDS } from './data/easy-words';
+import { MEDIUM_WORDS } from './data/medium-words';
+import { HARD_WORDS } from './data/hard-words';
 
 const App: React.FC = () => {
     const [gameStatus, setGameStatus] = useState<GameStatus>(GameStatus.Start);
@@ -17,10 +19,6 @@ const App: React.FC = () => {
     const [score, setScore] = useState<number>(0);
     const [lives, setLives] = useState<number>(INITIAL_LIVES);
     const [level, setLevel] = useState<number>(1);
-    const [wordBank, setWordBank] = useState<string[]>([]);
-    const [isLoading, setIsLoading] = useState<boolean>(false);
-    const [isFetchingWords, setIsFetchingWords] = useState<boolean>(false);
-    const [error, setError] = useState<string | null>(null);
     const [isShaking, setIsShaking] = useState<boolean>(false);
     const [showLevelUp, setShowLevelUp] = useState<boolean>(false);
     const [inputStatus, setInputStatus] = useState<'idle' | 'correct' | 'incorrect'>('idle');
@@ -29,12 +27,12 @@ const App: React.FC = () => {
     const [floatingScores, setFloatingScores] = useState<FloatingScore[]>([]);
     const [powerUpProgress, setPowerUpProgress] = useState({ slowTime: 0, bomb: 0, clearWords: 0 });
     const [activePowerUps, setActivePowerUps] = useState<ActivePowerUp[]>([]);
+    const [gameWords, setGameWords] = useState<string[]>([]);
 
     const animationFrameId = useRef<number | null>(null);
     const lastSpawnTime = useRef<number>(Date.now());
     const gameContainerRef = useRef<HTMLDivElement>(null);
     const inputStatusTimeout = useRef<number | null>(null);
-    const wordComplexityLevel = useRef<number>(1);
     
     const difficultySettings = DIFFICULTY_SETTINGS[difficulty];
     const fallSpeedMultiplier = activePowerUps.some(p => p.type === 'slow-time') ? 0.4 : 1;
@@ -47,56 +45,40 @@ const App: React.FC = () => {
         setScore(0);
         setLives(INITIAL_LIVES);
         setLevel(1);
-        setError(null);
         setCombo(0);
         setFloatingScores([]);
         setPowerUpProgress({ slowTime: 0, bomb: 0, clearWords: 0 });
         setActivePowerUps([]);
+        setGameWords([]);
         lastSpawnTime.current = Date.now();
     }, []);
 
-    const startGame = useCallback(async (selectedDifficulty: Difficulty) => {
+    const startGame = useCallback((selectedDifficulty: Difficulty) => {
         resetGameState();
-        setIsLoading(true);
-        setError(null);
         setDifficulty(selectedDifficulty);
 
-        const startComplexity = DIFFICULTY_SETTINGS[selectedDifficulty].COMPLEXITY_START_LEVEL;
-        wordComplexityLevel.current = startComplexity;
-
-        try {
-            const newWords = await fetchWords(startComplexity);
-            setWordBank(newWords);
-            setGameStatus(GameStatus.Playing);
-        } catch (err) {
-            setError('Failed to fetch words from Gemini. Please try again.');
-            console.error(err);
-            setGameStatus(GameStatus.Start);
-        } finally {
-            setIsLoading(false);
+        let selectedWordList: string[];
+        switch (selectedDifficulty) {
+            case 'Easy':
+                selectedWordList = EASY_WORDS;
+                break;
+            case 'Hard':
+                selectedWordList = HARD_WORDS;
+                break;
+            case 'Medium':
+            default:
+                selectedWordList = MEDIUM_WORDS;
+                break;
         }
+
+        const shuffledWords = [...selectedWordList].sort(() => Math.random() - 0.5);
+        setGameWords(shuffledWords);
+        setGameStatus(GameStatus.Playing);
     }, [resetGameState]);
-
-    const fetchMoreWords = useCallback(async () => {
-        if (isFetchingWords) return;
-
-        setIsFetchingWords(true);
-        wordComplexityLevel.current += 1;
-        try {
-            const additionalWords = await fetchWords(wordComplexityLevel.current);
-            setWordBank(prev => [...new Set([...prev, ...additionalWords])]);
-        } catch (err) {
-            console.error(`Failed to fetch more words for complexity ${wordComplexityLevel.current}:`, err);
-            // Add a few fallback words to prevent game from stalling if API fails mid-game
-            setWordBank(prev => [...new Set([...prev, 'network', 'issue', 'try', 'again', 'later'])]);
-        } finally {
-            setIsFetchingWords(false);
-        }
-    }, [isFetchingWords]);
 
     const spawnWord = useCallback((powerUp?: PowerUpType) => {
         if (!gameContainerRef.current) return;
-        if (!powerUp && wordBank.length === 0) return;
+        if (!powerUp && gameWords.length === 0) return;
 
         const gameWidth = gameContainerRef.current.offsetWidth;
         
@@ -106,7 +88,7 @@ const App: React.FC = () => {
             case 'slow-time': wordText = 'SLOW'; break;
             case 'bomb': wordText = 'BOMB'; break;
             case 'clear-words': wordText = 'CLEAR'; break;
-            default: wordText = wordBank[Math.floor(Math.random() * wordBank.length)];
+            default: wordText = gameWords[Math.floor(Math.random() * gameWords.length)];
         }
         randomWord = wordText;
         
@@ -131,7 +113,7 @@ const App: React.FC = () => {
             powerUp,
         };
         setWords(prev => [...prev, newWord]);
-    }, [wordBank, words]);
+    }, [gameWords, words]);
 
     const gameLoop = useCallback(() => {
         if (gameStatus !== GameStatus.Playing) return;
@@ -201,12 +183,6 @@ const App: React.FC = () => {
             setTimeout(() => setShowLevelUp(false), 1500);
         }
     }, [level, gameStatus]);
-
-    useEffect(() => {
-        if (gameStatus === GameStatus.Playing && wordBank.length < 50 && !isFetchingWords) {
-            fetchMoreWords();
-        }
-    }, [gameStatus, wordBank.length, isFetchingWords, fetchMoreWords]);
 
     const activatePowerUp = (powerUp: PowerUpType) => {
         switch (powerUp) {
@@ -352,7 +328,7 @@ const App: React.FC = () => {
     const renderContent = () => {
         switch (gameStatus) {
             case GameStatus.Start:
-                return <StartScreen onStart={startGame} isLoading={isLoading} error={error} />;
+                return <StartScreen onStart={startGame} />;
             case GameStatus.Playing:
                 return (
                     <GameScreen

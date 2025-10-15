@@ -3,16 +3,21 @@ import { Difficulty } from '../types';
 
 interface StartScreenProps {
     onStart: (difficulty: Difficulty) => void;
-    isLoading: boolean;
-    error: string | null;
 }
 
-const StartScreen: React.FC<StartScreenProps> = ({ onStart, isLoading, error }) => {
+const StartScreen: React.FC<StartScreenProps> = ({ onStart }) => {
+    const [isLoading, setIsLoading] = useState(false);
     const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty | null>(null);
+
 
     const handleStart = (difficulty: Difficulty) => {
         setSelectedDifficulty(difficulty);
-        onStart(difficulty);
+        setIsLoading(true);
+        // A small timeout to give feedback to the user
+        setTimeout(() => {
+            onStart(difficulty);
+            setIsLoading(false);
+        }, 200);
     };
 
     const renderButton = (difficulty: Difficulty, label: string, color: string) => {
@@ -34,7 +39,6 @@ const StartScreen: React.FC<StartScreenProps> = ({ onStart, isLoading, error }) 
             <h2 className="text-6xl font-extrabold mb-4 text-cyan-300 animate-pulse">Get Ready!</h2>
             <p className="text-xl text-slate-300 mb-8 max-w-md">Type the falling words before they hit the bottom. Lose a life for every word you miss.</p>
             <p className="text-2xl text-slate-100 mb-6 font-semibold">Select a difficulty:</p>
-            {error && <p className="text-red-400 bg-red-900/50 p-3 rounded-md mb-4">{error}</p>}
             <div className="flex flex-col sm:flex-row gap-4">
                 {renderButton('Easy', 'Easy', 'bg-green-400 hover:bg-green-300')}
                 {renderButton('Medium', 'Medium', 'bg-yellow-400 hover:bg-yellow-300')}

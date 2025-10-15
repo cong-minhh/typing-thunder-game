@@ -36,19 +36,19 @@
     animation: shake-short 0.4s cubic-bezier(.36,.07,.19,.97);
   }
   @keyframes score-pop {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.3); }
-      100% { transform: scale(1); }
+      0% { transform: scale(1) translateY(0); }
+      50% { transform: scale(1.3) translateY(-3px); }
+      100% { transform: scale(1) translateY(0); }
   }
   .animate-score-pop {
       display: inline-block;
       animation: score-pop 0.3s ease-in-out;
   }
   @keyframes level-up {
-      0% { opacity: 0; transform: translateY(20px) scale(0.8); }
-      20% { opacity: 1; transform: translateY(0) scale(1.1); }
-      80% { opacity: 1; transform: translateY(0) scale(1); }
-      100% { opacity: 0; transform: translateY(-20px) scale(0.8); }
+      0% { opacity: 0; transform: translateY(20px) scale(0.8) rotate(-5deg); }
+      20% { opacity: 1; transform: translateY(0) scale(1.1) rotate(2deg); }
+      80% { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+      100% { opacity: 0; transform: translateY(-20px) scale(0.8) rotate(5deg); }
   }
   .animate-level-up {
       animation: level-up 1.5s ease-in-out forwards;
