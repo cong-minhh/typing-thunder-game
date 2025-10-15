@@ -245,13 +245,13 @@ const App: React.FC = () => {
             const gameHeight = gameContainerRef.current?.offsetHeight ?? 800;
             const updatedWords = prevWords.map(word => ({ ...word, y: word.y + currentWordFallSpeed })).filter(word => word.status === 'falling');
 
-            const missedWords = updatedWords.filter(word => word.y >= gameHeight);
+            // Power-up words that fall off screen do not cost a life.
+            const missedWords = updatedWords.filter(word => word.y >= gameHeight && !word.powerUp);
             if (missedWords.length > 0) {
                 let livesToLose = missedWords.length;
                 if (shieldActive) {
                     livesToLose -= 1;
                     setShieldActive(false);
-                    // TODO: Add visual/audio feedback for shield break
                 }
                 if (livesToLose > 0) {
                     setLives(prevLives => prevLives - livesToLose);
@@ -288,7 +288,8 @@ const App: React.FC = () => {
     
             setIsWiping(true);
             setTimeout(() => {
-                setWords(prev => prev.filter(w => w.isWaveWord || w.powerUp)); // Clear normal words only
+                // Clear all falling words, but preserve boss state.
+                setWords([]);
                 setIsWiping(false);
             }, 800);
     
@@ -424,27 +425,6 @@ const App: React.FC = () => {
             setActivePowerUps(prev => [...prev, { type: 'score-multiplier', expiration: Date.now() + POWERUP_DURATIONS.scoreMultiplier }]);
         }
     }, []);
-    
-    const handleInputChange = (newValue: string) => {
-        const lowercasedValue = newValue.toLowerCase();
-        if (inputStatusTimeout.current) clearTimeout(inputStatusTimeout.current);
-        if (lowercasedValue.length > typedInput.length) {
-            let isCorrectPrefix = false;
-            if (levelPhase === LevelPhase.Boss && bossState) {
-                const bossWord = bossState.words[bossState.currentWordIndex % bossState.words.length];
-                const isBossWordPrefix = bossWord?.toLowerCase().startsWith(lowercasedValue);
-                const isDistractionWordPrefix = words.some(word => word.status === 'falling' && word.text.toLowerCase().startsWith(lowercasedValue));
-                isCorrectPrefix = !!isBossWordPrefix || isDistractionWordPrefix;
-            } else {
-                isCorrectPrefix = words.some(word => word.status === 'falling' && word.text.toLowerCase().startsWith(lowercasedValue));
-            }
-            setInputStatus(isCorrectPrefix ? 'correct' : 'incorrect');
-            inputStatusTimeout.current = window.setTimeout(() => setInputStatus('idle'), 300);
-        } else {
-            setInputStatus('idle');
-        }
-        setTypedInput(newValue);
-    };
 
     const processWordCompletion = (matchedWords: Word[]) => {
         const now = Date.now();
@@ -520,12 +500,40 @@ const App: React.FC = () => {
         
         setTimeout(() => setWords(prevWords => prevWords.filter(w => !idsToDestroy.has(w.id))), 600);
     };
+    
+    const handleInputCompletion = (currentInput: string) => {
+        const trimmedInput = currentInput.trim().toLowerCase();
+        if (!trimmedInput || gameStatus !== GameStatus.Playing) return;
 
-    const handleWordMatch = (trimmedInput: string) => {
+        // --- Boss Word Check ---
+        if (levelPhase === LevelPhase.Boss && bossState) {
+            const currentBossWord = bossState.words[bossState.currentWordIndex % bossState.words.length];
+            if (currentBossWord && trimmedInput === currentBossWord.toLowerCase()) {
+                const newHealth = bossState.health - 1;
+                setIsBossHit(true);
+                setTimeout(() => setIsBossHit(false), 300);
+
+                const points = (currentBossWord.length || 5) * 5 * (isScoreBoosted ? 2 : 1);
+                setScore(s => s + points);
+                setCombo(prev => prev + 1);
+                setLastCompletionTime(Date.now());
+
+                if (newHealth <= 0) {
+                    setWords([]);
+                    setLevelPhase(LevelPhase.LevelTransition);
+                } else {
+                    setBossState(prev => prev ? { ...prev, health: newHealth, currentWordIndex: prev.currentWordIndex + 1 } : null);
+                }
+                setTypedInput('');
+                return; // IMPORTANT: Exit after handling boss word
+            }
+        }
+
+        // --- Falling Word Check (if not a boss word) ---
         const matchedWords = words.filter(word => word.status === 'falling' && word.text.toLowerCase() === trimmedInput);
         if (matchedWords.length > 0) {
             const powerUpWord = matchedWords.find(w => w.powerUp);
-            if (powerUpWord) {
+            if (powerUpWord) { // It's a power-up word
                 activatePowerUp(powerUpWord.powerUp!);
                 setWords(prev => prev.map(w => w.id === powerUpWord.id ? { ...w, status: 'destroyed' } : w));
                 setTimeout(() => setWords(prev => prev.filter(w => w.id !== powerUpWord.id)), 600);
@@ -536,11 +544,37 @@ const App: React.FC = () => {
                     x: powerUpWord.x, y: powerUpWord.y
                 }]);
                 setTypedInput('');
-            } else {
+            } else { // It's a regular falling word
                 processWordCompletion(matchedWords);
             }
         }
-    }
+    };
+
+    const handleInputChange = (newValue: string) => {
+        if (gameStatus !== GameStatus.Playing) return;
+
+        const lowercasedValue = newValue.toLowerCase();
+        if (inputStatusTimeout.current) clearTimeout(inputStatusTimeout.current);
+
+        if (lowercasedValue.length > typedInput.length) {
+            let isCorrectPrefix = false;
+            if (levelPhase === LevelPhase.Boss && bossState) {
+                const bossWord = bossState.words[bossState.currentWordIndex % bossState.words.length];
+                const isBossWordPrefix = bossWord?.toLowerCase().startsWith(lowercasedValue);
+                const isDistractionWordPrefix = words.some(word => word.status === 'falling' && word.text.toLowerCase().startsWith(lowercasedValue));
+                isCorrectPrefix = !!isBossWordPrefix || isDistractionWordPrefix;
+            } else {
+                isCorrectPrefix = words.some(word => word.status === 'falling' && word.text.toLowerCase().startsWith(lowercasedValue));
+            }
+            setInputStatus(isCorrectPrefix ? 'correct' : 'incorrect');
+            inputStatusTimeout.current = window.setTimeout(() => setInputStatus('idle'), 300);
+        } else {
+            setInputStatus('idle');
+        }
+
+        setTypedInput(newValue);
+        handleInputCompletion(newValue);
+    };
 
     // Power-up hotkey handler
     useEffect(() => {
@@ -568,39 +602,6 @@ const App: React.FC = () => {
         window.addEventListener('keydown', handlePowerUpKeys);
         return () => window.removeEventListener('keydown', handlePowerUpKeys);
     }, [gameStatus, isLosingLife, levelPhase, powerUpsReady, activatePowerUp]);
-
-
-    useEffect(() => {
-        const trimmedInput = typedInput.trim().toLowerCase();
-        if (!trimmedInput || gameStatus !== GameStatus.Playing) return;
-
-        if (levelPhase === LevelPhase.Boss && bossState) {
-            const currentBossWord = bossState.words[bossState.currentWordIndex % bossState.words.length];
-            if (currentBossWord && trimmedInput === currentBossWord.toLowerCase()) {
-                const newHealth = bossState.health - 1;
-                setIsBossHit(true);
-                setTimeout(() => setIsBossHit(false), 300);
-
-                const points = (currentBossWord.length || 5) * 5 * (isScoreBoosted ? 2 : 1);
-                setScore(s => s + points);
-                setCombo(prev => prev + 1);
-                setLastCompletionTime(Date.now());
-
-                if (newHealth <= 0) {
-                    setWords([]);
-                    setLevelPhase(LevelPhase.LevelTransition);
-                } else {
-                    setBossState(prev => prev ? { ...prev, health: newHealth, currentWordIndex: prev.currentWordIndex + 1 } : null);
-                }
-                setTypedInput('');
-            } else {
-                handleWordMatch(trimmedInput);
-            }
-        } else {
-            handleWordMatch(trimmedInput);
-        }
-    }, [typedInput, words, bossState, levelPhase, combo, gameStatus, lastCompletionTime, isScoreBoosted]);
-
 
     useEffect(() => { return () => { if (inputStatusTimeout.current) clearTimeout(inputStatusTimeout.current); }; }, []);
 

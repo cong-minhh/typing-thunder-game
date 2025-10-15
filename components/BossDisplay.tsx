@@ -17,12 +17,13 @@ const generateGibberish = (length: number) => {
 
 const BossDisplay: React.FC<BossDisplayProps> = ({ bossState }) => {
     const { words, currentWordIndex } = bossState;
-    const currentWord = words[currentWordIndex] || ''; // Defensive check
+    // Use modulo operator for robust word access, preventing out-of-bounds errors.
+    const currentWord = words.length > 0 ? words[currentWordIndex % words.length] : '';
     const [displayWord, setDisplayWord] = useState(currentWord);
     const [isGlitching, setIsGlitching] = useState(false);
 
     useEffect(() => {
-        const targetWord = words[currentWordIndex] || ''; // Defensive check
+        const targetWord = words.length > 0 ? words[currentWordIndex % words.length] : '';
 
         // Trigger glitch effect when the word changes
         if (currentWordIndex > 0 && targetWord) {
