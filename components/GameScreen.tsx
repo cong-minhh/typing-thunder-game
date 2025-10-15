@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { Word, FloatingScore } from '../types';
 import FallingWord from './FallingWord';
+import FlowBar from './FlowBar';
 
 interface GameScreenProps {
     words: Word[];
@@ -12,6 +13,7 @@ interface GameScreenProps {
     floatingScores: FloatingScore[];
     isTimeSlowed: boolean;
     isPaused: boolean;
+    lastCompletionTime: number | null;
 }
 
 const GameScreen: React.FC<GameScreenProps> = ({
@@ -24,6 +26,7 @@ const GameScreen: React.FC<GameScreenProps> = ({
     floatingScores,
     isTimeSlowed,
     isPaused,
+    lastCompletionTime,
 }) => {
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -70,6 +73,23 @@ const GameScreen: React.FC<GameScreenProps> = ({
                             +{fs.bonus}
                         </span>
                     )}
+                    {(fs.timingBonus ?? 0) > 0 && (
+                         <span className="text-fuchsia-400 text-xl ml-2" style={{ textShadow: '0 0 8px #f0abfc' }}>
+                            +{fs.timingBonus}
+                        </span>
+                    )}
+                    {fs.timingLabel && (
+                        <div className="flex items-baseline ml-4 animate-timing-bonus-pop">
+                            <span className={`${fs.timingLabel.colorClass} text-3xl font-black`} style={{ textShadow: `0 0 10px currentColor` }}>
+                                {fs.timingLabel.text}!
+                            </span>
+                            {fs.timingMultiplier && (
+                                <span className="text-slate-300 text-lg ml-2">
+                                    (x{fs.timingMultiplier.toFixed(2)})
+                                </span>
+                            )}
+                        </div>
+                    )}
                 </div>
             ))}
 
@@ -79,6 +99,9 @@ const GameScreen: React.FC<GameScreenProps> = ({
                     <FallingWord key={word.id} word={word} typedInput={typedInput} />
                 ))}
             </div>
+
+            {/* Flow Bar */}
+            <FlowBar lastCompletionTime={lastCompletionTime} />
 
             {/* Input Field */}
             <div className="relative z-20 mt-4">

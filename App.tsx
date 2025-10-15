@@ -4,7 +4,7 @@ import GameScreen from './components/GameScreen';
 import StartScreen from './components/StartScreen';
 import GameOverScreen from './components/GameOverScreen';
 import ComboIndicator from './components/ComboIndicator';
-import { INITIAL_LIVES, LEVEL_UP_SCORE, WORD_FALL_SPEED_INCREASE, WORD_SPAWN_RATE_DECREASE, DIFFICULTY_SETTINGS, POWERUP_THRESHOLDS, POWERUP_DURATIONS } from './constants';
+import { INITIAL_LIVES, LEVEL_UP_SCORE, WORD_FALL_SPEED_INCREASE, WORD_SPAWN_RATE_DECREASE, DIFFICULTY_SETTINGS, POWERUP_THRESHOLDS, POWERUP_DURATIONS, TIMING_WINDOW_MS, MAX_TIMING_BONUS_MULTIPLIER, TIMING_TIERS } from './constants';
 import HeartIcon from './components/UI/HeartIcon';
 import BackgroundAnimation from './components/BackgroundAnimation';
 import PowerUpBar from './components/PowerUpBar';
@@ -34,6 +34,7 @@ const App: React.FC = () => {
     const [gameWords, setGameWords] = useState<string[]>([]);
     const [isWiping, setIsWiping] = useState(false);
     const [isLosingLife, setIsLosingLife] = useState(false);
+    const [lastCompletionTime, setLastCompletionTime] = useState<number | null>(null);
 
     const animationFrameId = useRef<number | null>(null);
     const lastSpawnTime = useRef<number>(Date.now());
@@ -61,6 +62,7 @@ const App: React.FC = () => {
         setActivePowerUps([]);
         setGameWords([]);
         setIsLosingLife(false);
+        setLastCompletionTime(null);
         lastSpawnTime.current = Date.now();
     }, []);
 
@@ -153,6 +155,7 @@ const App: React.FC = () => {
             if (missedWords.length > 0) {
                 setLives(prevLives => prevLives - missedWords.length);
                 setCombo(0);
+                setLastCompletionTime(null);
             }
 
             return prevWords.map(word => ({
@@ -173,6 +176,7 @@ const App: React.FC = () => {
         if (lives < prevLivesRef.current && gameStatus === GameStatus.Playing) {
             setIsLosingLife(true);
             setTypedInput('');
+            setLastCompletionTime(null);
     
             // Screen wipe effect
             setIsWiping(true);
@@ -198,7 +202,7 @@ const App: React.FC = () => {
     
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
+            if (e.key === 'Escape' || e.key.toLowerCase() === 'p') {
                 e.preventDefault();
                 if (gameStatus === GameStatus.Playing) {
                     setGameStatus(GameStatus.Paused);
@@ -316,7 +320,24 @@ const App: React.FC = () => {
     
         if (matchedWords.length > 0) {
             const gameHeight = gameContainerRef.current?.offsetHeight ?? 800;
+            const now = Date.now();
+            const timeSinceLast = lastCompletionTime ? now - lastCompletionTime : Infinity;
             
+            let timingBonusMultiplier = 1;
+            let timingLabel: { text: string; colorClass: string; } | undefined;
+
+            if (timeSinceLast < TIMING_WINDOW_MS) {
+                const remainingTime = TIMING_WINDOW_MS - timeSinceLast;
+                const bonusRatio = remainingTime / TIMING_WINDOW_MS;
+                timingBonusMultiplier = 1 + bonusRatio * (MAX_TIMING_BONUS_MULTIPLIER - 1);
+                
+                const tier = TIMING_TIERS.find(t => timeSinceLast <= t.threshold);
+                if(tier) {
+                    timingLabel = { text: tier.label, colorClass: tier.colorClass };
+                }
+            }
+
+
             let totalPointsGained = 0;
             const newFloatingScores: FloatingScore[] = [];
             const idsToDestroy = new Set<number>();
@@ -337,13 +358,20 @@ const App: React.FC = () => {
                     const positionBonus = Math.ceil(baseScore * positionBonusMultiplier);
                     const comboBonus = Math.round(baseScore * (combo * 0.1));
                     const totalBonus = positionBonus + comboBonus;
-                    const finalPoints = baseScore + totalBonus;
+                    
+                    const pointsBeforeTiming = baseScore + totalBonus;
+                    const finalPoints = Math.round(pointsBeforeTiming * timingBonusMultiplier);
+                    const timingBonusPoints = finalPoints - pointsBeforeTiming;
+                    
                     totalPointsGained += finalPoints;
 
                     newFloatingScores.push({
                         id: Date.now() + Math.random(),
                         base: baseScore,
                         bonus: totalBonus,
+                        timingBonus: timingBonusPoints,
+                        timingLabel: timingLabel,
+                        timingMultiplier: timingBonusMultiplier > 1 ? timingBonusMultiplier : undefined,
                         x: matchedWord.x,
                         y: matchedWord.y,
                     });
@@ -378,6 +406,7 @@ const App: React.FC = () => {
     
             setScore(prev => prev + totalPointsGained);
             setCombo(prev => prev + 1);
+            setLastCompletionTime(now);
     
             setFloatingScores(prev => [...prev, ...newFloatingScores]);
             const newScoreIds = newFloatingScores.map(fs => fs.id);
@@ -392,7 +421,7 @@ const App: React.FC = () => {
                 setWords(prevWords => prevWords.filter(w => !idsToDestroy.has(w.id)));
             }, 600);
         }
-    }, [typedInput, words, combo, spawnWord, gameStatus, powerUpProgress, powerUpsReady]);
+    }, [typedInput, words, combo, spawnWord, gameStatus, powerUpProgress, powerUpsReady, lastCompletionTime]);
 
     useEffect(() => {
         return () => {
@@ -424,6 +453,7 @@ const App: React.FC = () => {
                         floatingScores={floatingScores}
                         isTimeSlowed={isTimeSlowed}
                         isPaused={gameStatus === GameStatus.Paused || isLosingLife}
+                        lastCompletionTime={lastCompletionTime}
                     />
                 );
             case GameStatus.GameOver:
