@@ -1,0 +1,13 @@
+services:
+  - type: static_site
+    name: typing-thunder
+    env: node
+    buildCommand: "npm install && npm run build"
+    staticPublishPath: "./dist"
+    routes:
+      - type: rewrite
+        source: "/*"
+        destination: "/index.html"
+    envVars:
+      - key: API_KEY
+        sync: false
