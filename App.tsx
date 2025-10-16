@@ -14,7 +14,7 @@ import { HARD_WORDS } from './data/hard-words';
 import PauseScreen from './components/PauseScreen';
 import WipeAnimation from './components/WipeAnimation';
 import LifeLostOverlay from './components/LifeLostOverlay';
-import AudioManager from './components/AudioManager';
+// import AudioManager from './components/AudioManager';
 import SettingsScreen from './components/SettingsScreen';
 import HelpScreen from './components/HelpScreen';
 import { leaderboardService } from './services/leaderboardService';
@@ -968,7 +968,7 @@ const App: React.FC = () => {
 
     return (
         <div className={`relative flex flex-col items-center justify-center min-h-screen font-mono p-4 overflow-hidden transition-colors duration-1000 ${backgroundClass}`}>
-            <AudioManager gameStatus={gameStatus} levelPhase={levelPhase} />
+            {/* <AudioManager gameStatus={gameStatus} levelPhase={levelPhase} /> */}
             <BackgroundAnimation isTimeSlowed={isTimeSlowed} difficulty={activeDifficulty} />
             
             <div className="w-full max-w-[90rem] mx-auto flex justify-center items-start gap-8 z-10">
